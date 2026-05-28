@@ -1,0 +1,2 @@
+candidate_id,component,lag_spec,target_lags,exog_lags,HR,hidden_layer_sizes,alpha,seed,n_train,n_val,forecast_safe_no_exog_lag0,uses_vmd,Val RMSE,Val MAE,Val MAPE,Val Directional_Accuracy,n_refit_train_val
+1061,raw_no_vmd,"target:[1, 12] | US_Retail:[3], PCE:[1], US_Sentiment:[6], Import_CN:[3], USD_VND:[6]","(1, 12)","{'US_Retail': (3,), 'PCE': (1,), 'US_Sentiment': (6,), 'Import_CN': (3,), 'USD_VND': (6,)}",8,"(8,)",0.01,7,140,33,True,False,0.12503850195309738,0.1025202680990012,263.32032775444907,59.375,173

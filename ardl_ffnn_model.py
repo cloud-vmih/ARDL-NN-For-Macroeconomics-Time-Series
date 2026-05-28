@@ -27,7 +27,7 @@ from statsmodels.tsa.stattools import adfuller, kpss
 
 
 DEFAULT_TARGET_LAGS = (1, 12)
-DEFAULT_ARDL_TARGET_LAGS = (1, 10)
+DEFAULT_ARDL_TARGET_LAGS = (1, 12)
 DEFAULT_LAG_CANDIDATES = range(0, 7)
 
 DEFAULT_MARKETS = {
