@@ -15,6 +15,7 @@ from .features import LagSpec
 
 
 def _safe_adf(series: pd.Series) -> tuple[float, float]:
+    """Chạy ADF an toàn, trả NaN khi dữ liệu không phù hợp."""
     clean = series.dropna().astype(float)
     if len(clean) < 12 or clean.nunique() <= 1:
         return np.nan, np.nan
@@ -26,6 +27,7 @@ def _safe_adf(series: pd.Series) -> tuple[float, float]:
 
 
 def _safe_kpss(series: pd.Series) -> tuple[float, float]:
+    """Chạy KPSS an toàn, trả NaN khi dữ liệu không phù hợp."""
     clean = series.dropna().astype(float)
     if len(clean) < 12 or clean.nunique() <= 1:
         return np.nan, np.nan
@@ -39,6 +41,7 @@ def _safe_kpss(series: pd.Series) -> tuple[float, float]:
 
 
 def stationarity_decision(adf_pvalue: float, kpss_pvalue: float, alpha: float) -> str:
+    """Diễn giải tính dừng từ p-value ADF và KPSS."""
     if pd.notna(adf_pvalue) and pd.notna(kpss_pvalue) and adf_pvalue < alpha and kpss_pvalue > alpha:
         return "Stationary"
     if pd.notna(adf_pvalue) and pd.notna(kpss_pvalue) and adf_pvalue >= alpha and kpss_pvalue <= alpha:
@@ -48,9 +51,12 @@ def stationarity_decision(adf_pvalue: float, kpss_pvalue: float, alpha: float) -
 
 @dataclass
 class ForecastDiagnostics:
+    """Tạo các bảng chẩn đoán chuỗi, nhân quả và phần dư ARDL."""
+
     config: DiagnosticsConfig = DiagnosticsConfig()
 
     def describe_series(self, data: pd.DataFrame, group: str) -> pd.DataFrame:
+        """Tính thống kê và kiểm định cho từng chuỗi."""
         rows: list[dict[str, object]] = []
         for col in data.columns:
             clean = data[col].dropna().astype(float)
@@ -107,6 +113,7 @@ class ForecastDiagnostics:
         return pd.DataFrame(rows)
 
     def granger_causality(self, data: pd.DataFrame, target: str, features: list[str]) -> pd.DataFrame:
+        """Kiểm định Granger từ từng feature tới target."""
         rows: list[dict[str, object]] = []
         for feature in features:
             pair = data[[target, feature]].dropna()
@@ -147,6 +154,7 @@ class ForecastDiagnostics:
         rank: int,
         trend: str = "c",
     ) -> dict[str, object]:
+        """Tính chẩn đoán phần dư cho một mô hình ARDL."""
         exog_lags = {feature: list(spec.exog_lags.get(feature, ())) for feature in features}
         active_exog = [feature for feature, lags in exog_lags.items() if lags]
         clean = data[[target, *active_exog]].dropna()

@@ -16,6 +16,7 @@ from .experiment import VMDARDLFFNNExperiment
 
 
 def main() -> None:
+    """Phân tích tham số CLI và chạy pipeline được chọn."""
     parser = argparse.ArgumentParser(description="Run VMD + ARDL order selection + FFNN grid search.")
     parser.add_argument("--data", required=True, help="CSV input path.")
     parser.add_argument("--out", default="results", help="Output directory.")

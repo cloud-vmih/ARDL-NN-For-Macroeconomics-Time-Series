@@ -6,6 +6,8 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class DataConfig:
+    """Cấu hình cột dữ liệu đầu vào và biến đổi log."""
+
     date_col: str = "TIME_PERIOD"
     target: str = "Export_US"
     features: tuple[str, ...] = ("PCE", "US_Retail", "US_Sentiment", "USD_VND", "Import_CN")
@@ -15,6 +17,8 @@ class DataConfig:
 
 @dataclass(frozen=True)
 class VMDConfig:
+    """Cấu hình thuật toán phân rã VMD."""
+
     modes: int = 3
     alpha: float = 2000.0
     tau: float = 0.0
@@ -26,6 +30,8 @@ class VMDConfig:
 
 @dataclass(frozen=True)
 class ARDLSelectionConfig:
+    """Cấu hình chọn độ trễ ARDL cho từng biến ngoại sinh."""
+
     max_target_lag: int = 12
     max_exog_lag: int = 6
     top_n: int = 3
@@ -36,6 +42,8 @@ class ARDLSelectionConfig:
 
 @dataclass(frozen=True)
 class FFNNConfig:
+    """Cấu hình lưới siêu tham số cho mô hình FFNN."""
+
     hidden_units_candidates: tuple[int, ...] = (1, 4, 8, 12, 16)
     alpha_grid: tuple[float, ...] = (1e-4, 1e-3, 1e-2)
     seed_grid: tuple[int, ...] = (7,)
@@ -47,11 +55,14 @@ class FFNNConfig:
     min_test: int = 8
 
     def architecture_for(self, hidden_units: int) -> tuple[int, ...]:
+        """Trả về kiến trúc FFNN một lớp ẩn."""
         return (int(hidden_units),)
 
 
 @dataclass(frozen=True)
 class DiagnosticsConfig:
+    """Cấu hình kiểm định chẩn đoán chuỗi và phần dư."""
+
     lags: int = 12
     granger_maxlag: int = 2
     alpha: float = 0.05
@@ -59,6 +70,8 @@ class DiagnosticsConfig:
 
 @dataclass(frozen=True)
 class StationarityConfig:
+    """Cấu hình kiểm tra và xử lý tính dừng."""
+
     enabled: bool = True
     alpha: float = 0.05
     min_obs: int = 12
@@ -66,6 +79,8 @@ class StationarityConfig:
 
 @dataclass(frozen=True)
 class ExperimentConfig:
+    """Cấu hình tổng hợp cho toàn bộ pipeline thực nghiệm."""
+
     data: DataConfig = field(default_factory=DataConfig)
     vmd: VMDConfig = field(default_factory=VMDConfig)
     ardl: ARDLSelectionConfig = field(default_factory=ARDLSelectionConfig)

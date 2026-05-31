@@ -15,6 +15,7 @@ class VariationalModeDecomposer:
     config: VMDConfig = VMDConfig()
 
     def decompose_array(self, signal: np.ndarray) -> np.ndarray:
+        """Phân rã mảng một chiều thành các mode VMD."""
         x = np.asarray(signal, dtype=float)
         if x.ndim != 1:
             raise ValueError("VMD expects a one-dimensional signal.")
@@ -78,6 +79,7 @@ class VariationalModeDecomposer:
         return modes[:, :original_len]
 
     def decompose(self, series: pd.Series) -> dict[str, pd.Series]:
+        """Phân rã một Series thành các mode và phần dư."""
         values = series.astype(float).to_numpy()
 
         # decompose_array() đã center chuỗi trước khi tách mode.
@@ -102,7 +104,9 @@ class VariationalModeDecomposer:
         )
 
         return out
+
     def decompose_frame(self, data: pd.DataFrame) -> dict[str, pd.DataFrame]:
+        """Phân rã từng cột DataFrame và gom theo component."""
         by_component: dict[str, list[pd.Series]] = {}
         for col in data.columns:
             for component, decomposed in self.decompose(data[col]).items():

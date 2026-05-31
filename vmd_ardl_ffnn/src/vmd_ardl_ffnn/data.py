@@ -11,9 +11,12 @@ from .config import DataConfig
 
 @dataclass
 class GenericDataLoader:
+    """Nạp và chuẩn hóa dữ liệu CSV theo DataConfig."""
+
     config: DataConfig = DataConfig()
 
     def load_csv(self, path: str | Path) -> pd.DataFrame:
+        """Đọc CSV, kiểm tra cột bắt buộc và trả về dữ liệu mô hình."""
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Dataset not found: {path}")

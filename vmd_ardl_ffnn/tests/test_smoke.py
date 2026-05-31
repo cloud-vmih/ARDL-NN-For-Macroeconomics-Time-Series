@@ -12,6 +12,7 @@ from vmd_ardl_ffnn.experiment import VMDARDLFFNNExperiment
 
 
 def synthetic_data(n: int = 120) -> pd.DataFrame:
+    """Tạo dữ liệu giả dương cho smoke test."""
     rng = np.random.default_rng(2)
     x1 = np.exp(np.cumsum(rng.normal(0.0, 0.02, n))) + 2.0
     x2 = np.exp(np.cumsum(rng.normal(0.0, 0.01, n))) + 3.0
@@ -20,6 +21,7 @@ def synthetic_data(n: int = 120) -> pd.DataFrame:
 
 
 def test_vmd_decomposition_reconstructs_shape() -> None:
+    """Kiểm tra VMD trả đủ component cùng độ dài chuỗi."""
     series = pd.Series(np.sin(np.linspace(0, 10, 80)) + 0.1 * np.arange(80), name="x")
     levels = VariationalModeDecomposer(VMDConfig(modes=2, max_iterations=50)).decompose(series)
     assert set(levels) == {"VMD1", "VMD2", "RES"}
@@ -27,6 +29,7 @@ def test_vmd_decomposition_reconstructs_shape() -> None:
 
 
 def test_experiment_smoke_run() -> None:
+    """Chạy nhanh pipeline VMD và kiểm tra các bảng đầu ra chính."""
     with tempfile.TemporaryDirectory() as temp_dir:
         path = Path(temp_dir) / "data.csv"
         synthetic_data().to_csv(path, index=False)

@@ -4,6 +4,7 @@ import numpy as np
 
 
 def evaluate_forecast(y_true, y_pred) -> dict[str, float]:
+    """Tính các chỉ số lỗi và độ chính xác hướng dự báo."""
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
     denom = np.where(np.abs(y_true) < 1e-12, np.nan, y_true)

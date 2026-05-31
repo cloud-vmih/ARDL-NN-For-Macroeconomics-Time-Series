@@ -15,10 +15,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ARDLOrderSelector:
+    """Chọn tổ hợp độ trễ ARDL để đưa vào lưới FFNN."""
+
     config: ARDLSelectionConfig = ARDLSelectionConfig()
 
     @staticmethod
     def _fixed_target_lags() -> tuple[int, ...]:
+        """Trả về chính sách lag cố định cho biến mục tiêu."""
         # Temporary policy requested for this experiment. This can later be
         # replaced with a target-lag selection routine.
         return (1, 12)
@@ -30,6 +33,7 @@ class ARDLOrderSelector:
         feature: str,
         exog_lag: int,
     ) -> dict[str, object]:
+        """Chấm điểm một lag ngoại sinh bằng tiêu chí AIC/BIC."""
         target_lags = self._fixed_target_lags()
         model = ARDL(
             clean[target],
@@ -55,6 +59,7 @@ class ARDLOrderSelector:
         }
 
     def select(self, data: pd.DataFrame, target: str, features: list[str]) -> tuple[pd.DataFrame, list[LagSpec]]:
+        """Chọn top lag cho từng feature và tạo các LagSpec ứng viên."""
         if self.config.ic.lower() not in {"aic", "bic"}:
             raise ValueError("ARDLSelectionConfig.ic must be either 'aic' or 'bic' for lag scoring.")
 
