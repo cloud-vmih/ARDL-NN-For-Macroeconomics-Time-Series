@@ -34,7 +34,7 @@ class GenericDataLoader:
 
         cols = [self.config.target, *self.config.features]
         out = df[cols].apply(pd.to_numeric, errors="coerce").dropna()
-        if self.config.log_transform:
+        if self.config.log_transform == True:
             non_positive = [col for col in cols if (out[col] <= 0).any()]
             if non_positive:
                 raise ValueError(f"log_transform=True requires positive values: {non_positive}")

@@ -1,0 +1,10 @@
+Variable,Transform used,Decision basis
+cpi_mom_inflation,level,disabled
+broad_money,level,disabled
+ppi_qoq,level,disabled
+wti,level,disabled
+gold,level,disabled
+policy_rate,level,disabled
+VNINDEX,level,disabled
+NIKKEI225,level,disabled
+USDVND,level,disabled

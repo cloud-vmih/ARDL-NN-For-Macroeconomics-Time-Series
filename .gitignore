@@ -34,6 +34,11 @@ Thumbs.db
 
 # Generated project outputs
 outputs/
-results/
 figures/
-models/
+results_both_cpi/
+results_both/
+
+# Old files
+experiment_fixed_1.py
+experiment_fixed_2.py
+experiment_fixed_3.py

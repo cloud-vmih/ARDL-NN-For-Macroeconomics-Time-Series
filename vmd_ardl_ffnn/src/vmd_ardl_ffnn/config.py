@@ -12,7 +12,7 @@ class DataConfig:
     target: str = "Export_US"
     features: tuple[str, ...] = ("PCE", "US_Retail", "US_Sentiment", "USD_VND", "Import_CN")
     freq: str | None = "MS"
-    log_transform: bool = True
+    log_transform: bool = False
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,16 @@ class ARDLSelectionConfig:
     ic: str = "aic"
     trend: str = "c"
     causal: bool = True 
+    target_lag_strategy: str = "validation_screen"
+    fixed_target_lags: tuple[int, ...] = (1, 12)
+    target_lag_top_n: int = 2
+    force_target_lag_1: bool = True
+    target_lag_preset: str = "acf_pacf"
+    target_lag_candidates: tuple[tuple[int, ...], ...] = tuple()
+    target_lag_acf_pacf_top_n: int = 3
+    target_lag_acf_pacf_max_lags_per_set: int = 3
+    lag_spec_strategy: str = "staged"
+    max_lag_specs: int = 16
 
 
 @dataclass(frozen=True)
@@ -53,6 +63,12 @@ class FFNNConfig:
     min_train: int = 30
     min_val: int = 8
     min_test: int = 8
+    search_strategy: str = "staged_halving"
+    fast_hidden_units: int = 8
+    fast_alpha: float = 1e-3
+    fast_max_iter: int = 150
+    top_k_lag_specs: int = 4
+    top_component_candidates: int = 3
 
     def architecture_for(self, hidden_units: int) -> tuple[int, ...]:
         """Trả về kiến trúc FFNN một lớp ẩn."""

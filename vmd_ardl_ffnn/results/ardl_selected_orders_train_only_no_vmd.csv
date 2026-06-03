@@ -1,0 +1,67 @@
+feature,target_lag,target_lags,target_lag_strategy,selected_ic,selected_for_target_lags,target_lag_selection_fallback,exog_lag,AIC,BIC,selected_score,nobs,rank_within_feature,selected_for_ffnn_grid,combo_rank,combo_score_sum,combo_source,lag_spec_strategy,exog_lags,lag_spec,component
+__target_lag__,1.0,"(1, 12)",fixed,aic,True,False,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,12.0,"(1, 12)",fixed,aic,True,False,,,,,,,,,,,,,,raw_no_vmd
+broad_money,,"(1, 12)",,aic,,,1.0,498.0825211934469,515.4648389531044,498.0825211934469,239.0,,False,,,,,,,raw_no_vmd
+broad_money,,"(1, 12)",,aic,,,2.0,498.013750979231,515.3960687388885,498.013750979231,239.0,,False,,,,,,,raw_no_vmd
+broad_money,,"(1, 12)",,aic,,,3.0,497.7242101008656,515.1065278605231,497.7242101008656,239.0,,False,,,,,,,raw_no_vmd
+broad_money,,"(1, 12)",,aic,,,4.0,497.30419307481634,514.6865108344739,497.30419307481634,239.0,1.0,True,,,,,,,raw_no_vmd
+broad_money,,"(1, 12)",,aic,,,5.0,497.51007590159327,514.8923936612508,497.51007590159327,239.0,2.0,True,,,,,,,raw_no_vmd
+broad_money,,"(1, 12)",,aic,,,6.0,497.6377662849629,515.0200840446205,497.6377662849629,239.0,3.0,True,,,,,,,raw_no_vmd
+ppi_qoq,,"(1, 12)",,aic,,,1.0,498.2150793938223,515.5973971534798,498.2150793938223,239.0,1.0,True,,,,,,,raw_no_vmd
+ppi_qoq,,"(1, 12)",,aic,,,2.0,498.2150793938223,515.5973971534798,498.2150793938223,239.0,2.0,True,,,,,,,raw_no_vmd
+ppi_qoq,,"(1, 12)",,aic,,,3.0,498.2150793938223,515.5973971534798,498.2150793938223,239.0,3.0,True,,,,,,,raw_no_vmd
+ppi_qoq,,"(1, 12)",,aic,,,4.0,498.2150793938223,515.5973971534798,498.2150793938223,239.0,,False,,,,,,,raw_no_vmd
+ppi_qoq,,"(1, 12)",,aic,,,5.0,498.2150793938223,515.5973971534798,498.2150793938223,239.0,,False,,,,,,,raw_no_vmd
+ppi_qoq,,"(1, 12)",,aic,,,6.0,498.2150793938223,515.5973971534798,498.2150793938223,239.0,,False,,,,,,,raw_no_vmd
+wti,,"(1, 12)",,aic,,,1.0,496.9486386628717,514.3309564225292,496.9486386628717,239.0,,False,,,,,,,raw_no_vmd
+wti,,"(1, 12)",,aic,,,2.0,496.25615346742296,513.6384712270806,496.25615346742296,239.0,,False,,,,,,,raw_no_vmd
+wti,,"(1, 12)",,aic,,,3.0,495.98657794139683,513.3688957010544,495.98657794139683,239.0,1.0,True,,,,,,,raw_no_vmd
+wti,,"(1, 12)",,aic,,,4.0,496.0159747349161,513.3982924945736,496.0159747349161,239.0,2.0,True,,,,,,,raw_no_vmd
+wti,,"(1, 12)",,aic,,,5.0,496.5080353541962,513.8903531138537,496.5080353541962,239.0,,False,,,,,,,raw_no_vmd
+wti,,"(1, 12)",,aic,,,6.0,496.1511314082832,513.5334491679407,496.1511314082832,239.0,3.0,True,,,,,,,raw_no_vmd
+gold,,"(1, 12)",,aic,,,1.0,497.49912106886126,514.8814388285189,497.49912106886126,239.0,,False,,,,,,,raw_no_vmd
+gold,,"(1, 12)",,aic,,,2.0,497.4167897181374,514.7991074777949,497.4167897181374,239.0,,False,,,,,,,raw_no_vmd
+gold,,"(1, 12)",,aic,,,3.0,497.4205831571531,514.8029009168106,497.4205831571531,239.0,,False,,,,,,,raw_no_vmd
+gold,,"(1, 12)",,aic,,,4.0,497.3588319372015,514.7411496968591,497.3588319372015,239.0,3.0,True,,,,,,,raw_no_vmd
+gold,,"(1, 12)",,aic,,,5.0,497.3182322527323,514.7005500123898,497.3182322527323,239.0,2.0,True,,,,,,,raw_no_vmd
+gold,,"(1, 12)",,aic,,,6.0,497.286349461089,514.6686672207466,497.286349461089,239.0,1.0,True,,,,,,,raw_no_vmd
+policy_rate,,"(1, 12)",,aic,,,1.0,491.9113343776311,509.29365213728863,491.9113343776311,239.0,1.0,True,,,,,,,raw_no_vmd
+policy_rate,,"(1, 12)",,aic,,,2.0,493.1662680501921,510.54858580984967,493.1662680501921,239.0,2.0,True,,,,,,,raw_no_vmd
+policy_rate,,"(1, 12)",,aic,,,3.0,495.4731662612084,512.855484020866,495.4731662612084,239.0,3.0,True,,,,,,,raw_no_vmd
+policy_rate,,"(1, 12)",,aic,,,4.0,495.6539208760069,513.0362386356644,495.6539208760069,239.0,,False,,,,,,,raw_no_vmd
+policy_rate,,"(1, 12)",,aic,,,5.0,496.9172524542433,514.2995702139008,496.9172524542433,239.0,,False,,,,,,,raw_no_vmd
+policy_rate,,"(1, 12)",,aic,,,6.0,497.92746134141913,515.3097791010766,497.92746134141913,239.0,,False,,,,,,,raw_no_vmd
+VNINDEX,,"(1, 12)",,aic,,,1.0,497.8859426416788,515.2682604013364,497.8859426416788,239.0,1.0,True,,,,,,,raw_no_vmd
+VNINDEX,,"(1, 12)",,aic,,,2.0,497.9969546467128,515.3792724063703,497.9969546467128,239.0,3.0,True,,,,,,,raw_no_vmd
+VNINDEX,,"(1, 12)",,aic,,,3.0,497.96651037227554,515.348828131933,497.96651037227554,239.0,2.0,True,,,,,,,raw_no_vmd
+VNINDEX,,"(1, 12)",,aic,,,4.0,498.1422063836902,515.5245241433478,498.1422063836902,239.0,,False,,,,,,,raw_no_vmd
+VNINDEX,,"(1, 12)",,aic,,,5.0,498.1995962655992,515.5819140252568,498.1995962655992,239.0,,False,,,,,,,raw_no_vmd
+VNINDEX,,"(1, 12)",,aic,,,6.0,498.2145140424454,515.596831802103,498.2145140424454,239.0,,False,,,,,,,raw_no_vmd
+NIKKEI225,,"(1, 12)",,aic,,,1.0,497.0856883355073,514.4680060951648,497.0856883355073,239.0,1.0,True,,,,,,,raw_no_vmd
+NIKKEI225,,"(1, 12)",,aic,,,2.0,497.1299111062498,514.5122288659073,497.1299111062498,239.0,2.0,True,,,,,,,raw_no_vmd
+NIKKEI225,,"(1, 12)",,aic,,,3.0,497.6767940743724,515.05911183403,497.6767940743724,239.0,,False,,,,,,,raw_no_vmd
+NIKKEI225,,"(1, 12)",,aic,,,4.0,498.06210707457046,515.444424834228,498.06210707457046,239.0,,False,,,,,,,raw_no_vmd
+NIKKEI225,,"(1, 12)",,aic,,,5.0,497.321915132009,514.7042328916666,497.321915132009,239.0,3.0,True,,,,,,,raw_no_vmd
+NIKKEI225,,"(1, 12)",,aic,,,6.0,497.42403047860796,514.8063482382655,497.42403047860796,239.0,,False,,,,,,,raw_no_vmd
+USDVND,,"(1, 12)",,aic,,,1.0,497.46641589473376,514.8487336543913,497.46641589473376,239.0,2.0,True,,,,,,,raw_no_vmd
+USDVND,,"(1, 12)",,aic,,,2.0,497.52990047499145,514.912218234649,497.52990047499145,239.0,,False,,,,,,,raw_no_vmd
+USDVND,,"(1, 12)",,aic,,,3.0,497.3180074694407,514.7003252290983,497.3180074694407,239.0,1.0,True,,,,,,,raw_no_vmd
+USDVND,,"(1, 12)",,aic,,,4.0,497.46678049440214,514.8490982540598,497.46678049440214,239.0,3.0,True,,,,,,,raw_no_vmd
+USDVND,,"(1, 12)",,aic,,,5.0,497.6161951198613,514.9985128795188,497.6161951198613,239.0,,False,,,,,,,raw_no_vmd
+USDVND,,"(1, 12)",,aic,,,6.0,497.7298353552585,515.112153114916,497.7298353552585,239.0,,False,,,,,,,raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,1.0,3972.9931726953823,baseline_rank1,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,2.0,3972.9931726953823,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (2,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[2], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,3.0,3972.9931726953823,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (3,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[3], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,4.0,3973.022569488902,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (4,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[4], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,5.0,3973.025055487026,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (5,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[5], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,6.0,3973.037395466125,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (2,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[2], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,7.0,3973.0656551714947,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (4,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[4], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,8.0,3973.073740425979,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (3,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[3], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,9.0,3973.104184700416,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (2,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[2], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,10.0,3973.1415811206753,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (1,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,11.0,3973.1419457203438,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (4,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[4]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,12.0,3973.157726162269,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (6,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[6], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,13.0,3973.199055522159,one_feature_perturbation,staged,"{'broad_money': (5,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[5], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,14.0,3973.229399491884,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (5,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[5], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,15.0,3973.3267459055287,one_feature_perturbation,staged,"{'broad_money': (6,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (1,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[6], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[1], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd
+__ffnn_combo__,,"(1, 12)",,aic,,,,,,,,,,16.0,3974.2481063679434,one_feature_perturbation,staged,"{'broad_money': (4,), 'ppi_qoq': (1,), 'wti': (3,), 'gold': (6,), 'policy_rate': (2,), 'VNINDEX': (1,), 'NIKKEI225': (1,), 'USDVND': (3,)}","target:[1, 12] | broad_money:[4], ppi_qoq:[1], wti:[3], gold:[6], policy_rate:[2], VNINDEX:[1], NIKKEI225:[1], USDVND:[3]",raw_no_vmd

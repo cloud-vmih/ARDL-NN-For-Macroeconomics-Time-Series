@@ -4,7 +4,7 @@ from dataclasses import replace
 from itertools import product
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 import warnings
 import numpy as np
 import pandas as pd
@@ -262,6 +262,7 @@ class VMDARDLFFNNExperiment:
         hidden_units: int,
         alpha: float,
         seed: int,
+        max_iter: int | None = None,
     ) -> tuple[SklearnFFNNRegressor, int]:
         """Fit FFNN cho một LagSpec và trả về model kèm số dòng train hợp lệ.
         Dữ liệu được chuyển sang ma trận supervised trước khi kiểm tra min_train.
@@ -277,10 +278,133 @@ class VMDARDLFFNNExperiment:
             seed=seed,
             activation=self.config.ffnn.activation,
             learning_rate_init=self.config.ffnn.learning_rate_init,
-            max_iter=self.config.ffnn.max_iter,
+            max_iter=self.config.ffnn.max_iter if max_iter is None else int(max_iter),
         ).fit(supervised[self._feature_names(spec)].to_numpy(float), supervised[self.target].to_numpy(float))
         # Trả kèm số dòng train thật sự sau khi mất dữ liệu do lag.
         return model, len(supervised)
+
+    def _ffnn_search_candidates(
+        self,
+        component: str,
+        train_data: pd.DataFrame,
+        specs: list[LagSpec],
+        prediction_fn: Callable[[SklearnFFNNRegressor, LagSpec, int], pd.DataFrame],
+        scoring_fn: Callable[[pd.DataFrame], dict[str, float]],
+        uses_vmd: bool,
+        candidate_id_start: int = 0,
+    ) -> tuple[list[dict[str, Any]], dict[int, pd.DataFrame], list[int], int]:
+        """Run either full-grid or staged FFNN search for one component."""
+        strategy = self.config.ffnn.search_strategy.lower().replace("-", "_")
+        if strategy not in {"staged_halving", "full_grid"}:
+            raise ValueError("FFNNConfig.search_strategy must be 'staged_halving' or 'full_grid'.")
+
+        rows: list[dict[str, Any]] = []
+        pred_by_id: dict[int, pd.DataFrame] = {}
+        final_candidate_ids: list[int] = []
+        candidate_id = int(candidate_id_start)
+
+        def fit_score_candidate(
+            spec: LagSpec,
+            hidden_units: int,
+            alpha: float,
+            seed: int,
+            max_iter: int,
+            search_stage: str,
+            selected_for_hyperparam_search: bool,
+            fast_screen_rmse: float | None = None,
+        ) -> tuple[int | None, dict[str, Any] | None, pd.DataFrame | None]:
+            nonlocal candidate_id
+            try:
+                model, n_train = self._fit_model(
+                    train_data,
+                    spec,
+                    int(hidden_units),
+                    float(alpha),
+                    int(seed),
+                    max_iter=int(max_iter),
+                )
+                pred = prediction_fn(model, spec, candidate_id)
+            except (ValueError, KeyError, IndexError):
+                return None, None, None
+            if len(pred) < self.config.ffnn.min_val:
+                return None, None, None
+
+            row = {
+                "candidate_id": candidate_id,
+                "component": component,
+                "lag_spec": spec.label,
+                "target_lags": spec.target_lags,
+                "exog_lags": spec.exog_lags,
+                "HR": int(hidden_units),
+                "hidden_layer_sizes": self.config.ffnn.architecture_for(int(hidden_units)),
+                "alpha": float(alpha),
+                "seed": int(seed),
+                "max_iter": int(max_iter),
+                "n_train": n_train,
+                "n_val": len(pred),
+                "forecast_safe_no_exog_lag0": True,
+                "uses_vmd": bool(uses_vmd),
+                "search_strategy": strategy,
+                "search_stage": search_stage,
+                "selected_for_hyperparam_search": bool(selected_for_hyperparam_search),
+                "fast_screen_rmse": fast_screen_rmse,
+            }
+            row.update({f"Val {k}": v for k, v in scoring_fn(pred).items()})
+            current_id = candidate_id
+            candidate_id += 1
+            return current_id, row, pred
+
+        if strategy == "staged_halving":
+            screen_rows: list[dict[str, Any]] = []
+            for spec in specs:
+                current_id, row, pred = fit_score_candidate(
+                    spec,
+                    self.config.ffnn.fast_hidden_units,
+                    self.config.ffnn.fast_alpha,
+                    self.config.ffnn.seed_grid[0],
+                    self.config.ffnn.fast_max_iter,
+                    "lag_screen",
+                    False,
+                )
+                if current_id is None or row is None or pred is None:
+                    continue
+                rows.append(row)
+                pred_by_id[current_id] = pred
+                screen_rows.append(row)
+
+            if not screen_rows:
+                return rows, pred_by_id, final_candidate_ids, candidate_id
+
+            screen_df = pd.DataFrame(screen_rows).sort_values(["Val RMSE", "Val MAE", "Val MAPE"])
+            top_k = max(1, int(self.config.ffnn.top_k_lag_specs))
+            shortlisted_labels = set(screen_df.head(top_k)["lag_spec"].tolist())
+            fast_rmse_by_label = dict(zip(screen_df["lag_spec"], screen_df["Val RMSE"], strict=False))
+            search_specs = [spec for spec in specs if spec.label in shortlisted_labels]
+        else:
+            search_specs = specs
+            fast_rmse_by_label = {}
+
+        for spec in search_specs:
+            for hidden_units in self.config.ffnn.hidden_units_candidates:
+                for alpha in self.config.ffnn.alpha_grid:
+                    for seed in self.config.ffnn.seed_grid:
+                        current_id, row, pred = fit_score_candidate(
+                            spec,
+                            int(hidden_units),
+                            float(alpha),
+                            int(seed),
+                            self.config.ffnn.max_iter,
+                            "hyperparam_search" if strategy == "staged_halving" else "full_grid",
+                            True,
+                            fast_rmse_by_label.get(spec.label),
+                        )
+                        if current_id is None or row is None or pred is None:
+                            continue
+                        rows.append(row)
+                        pred_by_id[current_id] = pred
+                        final_candidate_ids.append(current_id)
+
+        return rows, pred_by_id, final_candidate_ids, candidate_id
 
     def _batch_predict_observed(
         self,
@@ -324,7 +448,116 @@ class VMDARDLFFNNExperiment:
                 values.append(float(component_history[feature].iloc[-lag]))
         return np.asarray(values, dtype=float).reshape(1, -1)
 
-    def _select_specs(self, frames: dict[str, pd.DataFrame]) -> None:
+    def _uses_validation_target_lag_screen(self) -> bool:
+        """Return whether target lags should be selected by FFNN validation screening."""
+        return self.config.ardl.target_lag_strategy.lower().replace("-", "_") == "validation_screen"
+
+    def _target_lag_screen_spec(self, train_frame: pd.DataFrame, target_lags: tuple[int, ...]) -> LagSpec:
+        """Build one cheap ARDL rank-1 exogenous spec for a target-lag candidate."""
+        screen_config = replace(
+            self.config.ardl,
+            target_lag_strategy="fixed",
+            fixed_target_lags=tuple(int(lag) for lag in target_lags),
+            top_n=1,
+            lag_spec_strategy="staged",
+            max_lag_specs=1,
+        )
+        table, raw_specs = ARDLOrderSelector(screen_config).select(
+            train_frame,
+            self.target,
+            self.features,
+            target_lags_override=tuple(int(lag) for lag in target_lags),
+        )
+        del table
+        for raw_spec in raw_specs:
+            try:
+                return self._safe_spec(raw_spec)
+            except ValueError:
+                continue
+        raise ValueError(f"No forecast-safe validation-screen spec for target_lags={target_lags}.")
+
+    def _validation_screen_target_lags(
+        self,
+        component: str,
+        train_frame: pd.DataFrame,
+        prediction_fn: Callable[[SklearnFFNNRegressor, LagSpec, int], pd.DataFrame],
+        scoring_fn: Callable[[pd.DataFrame], dict[str, float]],
+    ) -> tuple[tuple[int, ...], pd.DataFrame]:
+        """Select target lags by cheap FFNN validation screening."""
+        selector = ARDLOrderSelector(self.config.ardl)
+        candidates = selector.target_lag_candidate_sets(train_frame, self.target)
+        target_lag_metadata = selector.target_lag_candidate_metadata(train_frame, self.target)
+        rows: list[dict[str, Any]] = []
+        for candidate_id, target_lags in enumerate(candidates):
+            metadata = target_lag_metadata.get(tuple(target_lags), {})
+            row: dict[str, Any] = {
+                "feature": "__target_lag_validation_screen__",
+                "component": component,
+                "target_lag_candidate_id": candidate_id,
+                "target_lags": tuple(target_lags),
+                "target_lag_strategy": "validation_screen",
+                "target_lag_preset": self.config.ardl.target_lag_preset,
+                "target_lag_source": metadata.get("target_lag_source"),
+                "acf_value": metadata.get("acf_value"),
+                "pacf_value": metadata.get("pacf_value"),
+                "significance_threshold": metadata.get("significance_threshold"),
+                "selected_for_target_lags": False,
+                "target_lag_selection_fallback": False,
+            }
+            try:
+                spec = self._target_lag_screen_spec(train_frame, tuple(target_lags))
+                model, n_train = self._fit_model(
+                    train_frame,
+                    spec,
+                    int(self.config.ffnn.fast_hidden_units),
+                    float(self.config.ffnn.fast_alpha),
+                    int(self.config.ffnn.seed_grid[0]),
+                    max_iter=int(self.config.ffnn.fast_max_iter),
+                )
+                pred = prediction_fn(model, spec, candidate_id)
+                if len(pred) < self.config.ffnn.min_val:
+                    raise ValueError(f"Only {len(pred)} validation rows after target-lag screening.")
+                row.update(
+                    {
+                        "lag_spec": spec.label,
+                        "exog_lags": spec.exog_lags,
+                        "n_train": n_train,
+                        "n_val": len(pred),
+                    }
+                )
+                row.update({f"Val {key}": value for key, value in scoring_fn(pred).items()})
+            except (ValueError, KeyError, IndexError) as exc:
+                row["error"] = str(exc)
+            rows.append(row)
+
+        screen = pd.DataFrame(rows)
+        valid = screen.dropna(subset=["Val RMSE"]) if "Val RMSE" in screen.columns else pd.DataFrame()
+        if valid.empty:
+            fallback = ARDLOrderSelector(self.config.ardl)._fallback_target_lags()
+            fallback_row = {
+                "feature": "__target_lag_validation_screen__",
+                "component": component,
+                "target_lags": fallback,
+                "target_lag_strategy": "validation_screen",
+                "target_lag_preset": self.config.ardl.target_lag_preset,
+                "selected_for_target_lags": True,
+                "target_lag_selection_fallback": True,
+                "error": "No target-lag validation-screen candidate could be scored.",
+            }
+            screen = pd.concat([screen, pd.DataFrame([fallback_row])], ignore_index=True)
+            return fallback, screen
+
+        best_idx = valid.sort_values(["Val RMSE", "Val MAE", "Val MAPE"]).index[0]
+        selected = tuple(int(lag) for lag in screen.loc[best_idx, "target_lags"])
+        screen.loc[best_idx, "selected_for_target_lags"] = True
+        return selected, screen
+
+    def _select_specs(
+        self,
+        frames: dict[str, pd.DataFrame],
+        target_lags_by_frame: dict[str, tuple[int, ...]] | None = None,
+        target_lag_screen_tables: dict[str, pd.DataFrame] | None = None,
+    ) -> None:
         """Chạy ARDLOrderSelector cho từng frame và lưu các spec forecast-safe.
         Bảng điểm ARDL được giữ trong order_tables_, còn danh sách LagSpec đã
         lọc trùng được giữ trong selected_specs_.
@@ -333,10 +566,19 @@ class VMDARDLFFNNExperiment:
         # Reset kết quả chọn lag để mỗi lần run không dùng lẫn state cũ.
         self.order_tables_ = {}
         self.selected_specs_ = {}
+        target_lags_by_frame = target_lags_by_frame or {}
+        target_lag_screen_tables = target_lag_screen_tables or {}
         for name, frame in frames.items():
             self._log(f"Selecting ARDL lags on train only: {name}")
             # ARDL chỉ chạy trên frame train/component tương ứng.
-            table, raw_specs = selector.select(frame, self.target, self.features)
+            table, raw_specs = selector.select(
+                frame,
+                self.target,
+                self.features,
+                target_lags_override=target_lags_by_frame.get(name),
+            )
+            if name in target_lag_screen_tables:
+                table = pd.concat([target_lag_screen_tables[name], table], ignore_index=True)
             safe_specs: list[LagSpec] = []
             seen: set[str] = set()
             for raw_spec in raw_specs:
@@ -488,6 +730,92 @@ class VMDARDLFFNNExperiment:
         fig.savefig(self.output_dir / filename, dpi=160)
         plt.close(fig)
 
+    def _comparison_table(
+        self,
+        no_vmd_metrics: pd.DataFrame,
+        vmd_metrics: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Tạo bảng tổng hợp so sánh metric giữa baseline no-VMD và cached VMD."""
+        # Gắn nhãn pipeline rồi pivot để mỗi split/scale có metric của cả hai mô hình.
+        combined = pd.concat(
+            [
+                no_vmd_metrics.assign(pipeline="no_vmd"),
+                vmd_metrics.assign(pipeline="cached_vmd"),
+            ],
+            ignore_index=True,
+        )
+        metric_cols = [col for col in combined.columns if col not in {"split", "scale", "pipeline"}]
+        rows: list[dict[str, Any]] = []
+        for (split, scale), group in combined.groupby(["split", "scale"], sort=False):
+            row: dict[str, Any] = {"split": split, "scale": scale}
+            by_pipeline = group.set_index("pipeline")
+            for metric in metric_cols:
+                no_value = float(by_pipeline.loc["no_vmd", metric]) if "no_vmd" in by_pipeline.index else np.nan
+                vmd_value = float(by_pipeline.loc["cached_vmd", metric]) if "cached_vmd" in by_pipeline.index else np.nan
+                row[f"no_vmd_{metric}"] = no_value
+                row[f"cached_vmd_{metric}"] = vmd_value
+                row[f"delta_{metric}_cached_vmd_minus_no_vmd"] = vmd_value - no_value
+                if metric in {"RMSE", "MAE", "MAPE"} and np.isfinite(no_value) and abs(no_value) > 1e-12:
+                    # Với metric lỗi, số dương nghĩa là VMD giảm lỗi so với no-VMD.
+                    row[f"cached_vmd_improvement_{metric}_pct"] = (no_value - vmd_value) / no_value * 100.0
+            rows.append(row)
+        return pd.DataFrame(rows)
+
+    def _comparison_forecast_frame(
+        self,
+        forecasts: pd.DataFrame,
+        pipeline: str,
+        predicted_col: str,
+    ) -> pd.DataFrame:
+        """Chuẩn hóa forecast của một pipeline để vẽ chung trên cùng biểu đồ."""
+        actual_col = "actual_level" if "actual_level" in forecasts.columns else "actual_raw_transformed"
+        display_predicted_col = "predicted_level" if "predicted_level" in forecasts.columns else predicted_col
+        out = forecasts[["date", "split", actual_col, display_predicted_col]].copy()
+        out = out.rename(columns={actual_col: "actual", display_predicted_col: "predicted"})
+        out["pipeline"] = pipeline
+        out["scale"] = "level" if actual_col == "actual_level" else "transformed"
+        return out
+
+    def _plot_comparison_predictions(
+        self,
+        comparison_forecasts: pd.DataFrame,
+        split: str,
+        filename: str,
+    ) -> None:
+        """Vẽ actual, no-VMD predicted và cached VMD predicted trên cùng biểu đồ."""
+        try:
+            os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+            import matplotlib.pyplot as plt
+        except ImportError:
+            self._log(f"Skipping plot {filename}: matplotlib is not installed.")
+            return
+        group = comparison_forecasts[comparison_forecasts["split"].eq(split)].copy()
+        if group.empty:
+            return
+        group["date"] = pd.to_datetime(group["date"])
+        actual = (
+            group[["date", "actual"]]
+            .drop_duplicates(subset=["date"])
+            .sort_values("date")
+        )
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(actual["date"], actual["actual"], label="Actual", linewidth=2.2, color="black")
+        for pipeline, label in [("no_vmd", "No VMD predicted"), ("cached_vmd", "VMD predicted")]:
+            pred = group[group["pipeline"].eq(pipeline)].sort_values("date")
+            if pred.empty:
+                continue
+            ax.plot(pred["date"], pred["predicted"], label=label, linewidth=2)
+        scale = group["scale"].dropna().iloc[0] if "scale" in group.columns and not group["scale"].dropna().empty else "transformed"
+        ax.set_title(f"VMD vs No-VMD Predictions - {split}")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Level" if scale == "level" else "Transformed")
+        ax.legend()
+        ax.grid(True, alpha=0.25)
+        fig.autofmt_xdate()
+        fig.tight_layout()
+        fig.savefig(self.output_dir / filename, dpi=160)
+        plt.close(fig)
+
     def _diagnostics(self, train: pd.DataFrame, frames: dict[str, pd.DataFrame], suffix: str) -> dict[str, pd.DataFrame]:
         """Tạo các bảng chẩn đoán train-only cho chuỗi, Granger và phần dư ARDL."""
         diagnostics = ForecastDiagnostics(self.config.diagnostics)
@@ -534,61 +862,65 @@ class VMDARDLFFNNExperiment:
             f"train={len(train)}, validation={len(val)}, test={len(test)}"
         )
         component = "raw_no_vmd"
+        observed_val = pd.concat([train, val])
+        target_lags_by_frame: dict[str, tuple[int, ...]] = {}
+        target_lag_screen_tables: dict[str, pd.DataFrame] = {}
+        if self._uses_validation_target_lag_screen():
+            self._log(f"Validation-screening target lags: {component}")
+            selected_target_lags, screen_table = self._validation_screen_target_lags(
+                component=component,
+                train_frame=train,
+                prediction_fn=lambda model, spec, candidate_id: self._batch_predict_observed(
+                    model, observed_val, val.index, spec, "validation", component
+                ),
+                scoring_fn=lambda pred: evaluate_forecast(pred["actual"], pred["predicted"]),
+            )
+            target_lags_by_frame[component] = selected_target_lags
+            target_lag_screen_tables[component] = screen_table
         # Với baseline no-VMD, toàn bộ chuỗi được xem như một component duy nhất.
-        self._select_specs({component: train})
+        self._select_specs({component: train}, target_lags_by_frame, target_lag_screen_tables)
         audit = []
         for split, frame in [("train", train), ("validation", val), ("test", test)]:
             # Ghi audit split trước khi tạo lag để biết kích thước dữ liệu gốc của từng split.
             audit.extend(self._audit_rows("no_vmd", "chronological_split", split, frame))
 
-        rows: list[dict[str, Any]] = []
-        # Lưu forecast validation theo candidate_id để lấy lại candidate thắng.
-        val_frames: dict[int, pd.DataFrame] = {}
-        row_id = 0
-        for spec in self.selected_specs_[component]:
-            for hidden_units in self.config.ffnn.hidden_units_candidates:
-                for alpha in self.config.ffnn.alpha_grid:
-                    for seed in self.config.ffnn.seed_grid:
-                        try:
-                            # Fit chỉ trên train để validation phản ánh đúng out-of-sample.
-                            model, n_train = self._fit_model(train, spec, int(hidden_units), float(alpha), int(seed))
-                            # Validation được dự báo từ chuỗi quan sát train+validation nhưng chỉ chấm val.index.
-                            val_pred = self._batch_predict_observed(
-                                model, pd.concat([train, val]), val.index, spec, "validation", component
-                            )
-                        except ValueError:
-                            # Bỏ candidate không đủ dữ liệu sau lag hoặc spec không hợp lệ.
-                            continue
-                        if len(val_pred) < self.config.ffnn.min_val:
-                            # Không chấm candidate khi validation còn quá ít điểm dự báo.
-                            continue
-                        row = {
-                            "candidate_id": row_id,
-                            "component": component,
-                            "lag_spec": spec.label,
-                            "target_lags": spec.target_lags,
-                            "exog_lags": spec.exog_lags,
-                            "HR": int(hidden_units),
-                            "hidden_layer_sizes": self.config.ffnn.architecture_for(int(hidden_units)),
-                            "alpha": float(alpha),
-                            "seed": int(seed),
-                            "n_train": n_train,
-                            "n_val": len(val_pred),
-                            "forecast_safe_no_exog_lag0": True,
-                            "uses_vmd": False,
-                        }
-                        # Gắn metric validation vào cùng dòng candidate để sort chọn model.
-                        row.update({f"Val {k}": v for k, v in evaluate_forecast(val_pred["actual"], val_pred["predicted"]).items()})
-                        rows.append(row)
-                        val_frames[row_id] = val_pred
-                        # Audit design validation ghi rõ feature lag đã dùng cho candidate này.
-                        audit.extend(self._audit_rows("no_vmd", "validation_design", "validation", val_pred, spec, self._feature_names(spec)))
-                        row_id += 1
+        rows, val_frames, final_candidate_ids, _ = self._ffnn_search_candidates(
+            component=component,
+            train_data=train,
+            specs=self.selected_specs_[component],
+            prediction_fn=lambda model, spec, candidate_id: self._batch_predict_observed(
+                model, observed_val, val.index, spec, "validation", component
+            ),
+            scoring_fn=lambda pred: evaluate_forecast(pred["actual"], pred["predicted"]),
+            uses_vmd=False,
+        )
+        for row in rows:
+            spec = LagSpec(tuple(row["target_lags"]), {k: tuple(v) for k, v in row["exog_lags"].items()})
+            audit.extend(
+                self._audit_rows(
+                    "no_vmd",
+                    f"validation_design_{row['search_stage']}",
+                    "validation",
+                    val_frames[int(row["candidate_id"])],
+                    spec,
+                    self._feature_names(spec),
+                )
+            )
         if not rows:
             raise ValueError("No no-VMD candidates could be trained.")
         # Chọn candidate tốt nhất theo RMSE, rồi MAE và MAPE làm tie-breaker.
-        self.search_results_ = pd.DataFrame(rows).sort_values(["Val RMSE", "Val MAE", "Val MAPE"]).reset_index(drop=True)
-        best = self.search_results_.iloc[0]
+        search_df = pd.DataFrame(rows)
+        search_df["eligible_final_selection"] = (
+            search_df["candidate_id"].isin(final_candidate_ids) if final_candidate_ids else True
+        )
+        selection_df = search_df[search_df["eligible_final_selection"]].copy()
+        if final_candidate_ids:
+            selection_df = search_df[search_df["candidate_id"].isin(final_candidate_ids)].copy()
+        self.search_results_ = search_df.sort_values(
+            ["eligible_final_selection", "Val RMSE", "Val MAE", "Val MAPE"],
+            ascending=[False, True, True, True],
+        ).reset_index(drop=True)
+        best = selection_df.sort_values(["Val RMSE", "Val MAE", "Val MAPE"]).iloc[0]
         # Khôi phục LagSpec từ dòng winner để refit và dự báo test.
         best_spec = LagSpec(tuple(best["target_lags"]), {k: tuple(v) for k, v in best["exog_lags"].items()})
         self._log("Refitting locked no-VMD winner on train+validation.")
@@ -704,6 +1036,14 @@ class VMDARDLFFNNExperiment:
         out["actual_raw_transformed"] = out["date"].map(actual_raw[self.target]).astype(float)
         return out
 
+    def _score_component_prediction(self, prediction: pd.DataFrame, actual_raw: pd.DataFrame) -> dict[str, float]:
+        """Score one VMD component candidate after reconstructing its validation path."""
+        reconstructed = self._reconstruct(prediction, actual_raw)
+        return evaluate_forecast(
+            reconstructed["actual_raw_transformed"],
+            reconstructed["predicted_reconstructed"],
+        )
+
     def run(self, csv_path: str | Path) -> dict[str, pd.DataFrame]:
         """Chạy pipeline VMD đầy đủ với cache walk-forward chống leakage.
         Hàm chọn model tốt nhất cho từng component, tìm tổ hợp component tốt
@@ -729,46 +1069,56 @@ class VMDARDLFFNNExperiment:
         self._log("Running VMD on train only.")
         # VMD ban đầu chỉ chạy trên train để chọn lag và fit candidate component.
         train_components = self.decompose(train)
-        self._select_specs(train_components)
         # Cache validation theo origin để VMD không thấy điểm validation tương lai.
         val_cache = self._make_origin_cache(train, val, "validation")
+        target_lags_by_frame: dict[str, tuple[int, ...]] = {}
+        target_lag_screen_tables: dict[str, pd.DataFrame] = {}
+        if self._uses_validation_target_lag_screen():
+            for component, train_component in train_components.items():
+                self._log(f"Validation-screening target lags: {component}")
+                selected_target_lags, screen_table = self._validation_screen_target_lags(
+                    component=component,
+                    train_frame=train_component,
+                    prediction_fn=lambda model, spec, candidate_id, component=component: self._predict_component_from_cache(
+                        model, component, val_cache, val, spec, "validation", candidate_id
+                    ),
+                    scoring_fn=lambda pred: self._score_component_prediction(pred, val),
+                )
+                target_lags_by_frame[component] = selected_target_lags
+                target_lag_screen_tables[component] = screen_table
+        self._select_specs(train_components, target_lags_by_frame, target_lag_screen_tables)
 
         candidate_predictions: dict[str, list[pd.DataFrame]] = {}
+        pred_by_id: dict[int, pd.DataFrame] = {}
         candidate_rows: list[dict[str, Any]] = []
         candidate_id = 0
         for component, train_component in train_components.items():
-            candidate_predictions[component] = []
-            for spec in self.selected_specs_[component]:
-                for hidden_units in self.config.ffnn.hidden_units_candidates:
-                    for alpha in self.config.ffnn.alpha_grid:
-                        for seed in self.config.ffnn.seed_grid:
-                            try:
-                                # Fit model riêng cho từng component/spec/hyperparameter trên train component.
-                                model, n_train = self._fit_model(train_component, spec, int(hidden_units), float(alpha), int(seed))
-                                # Dự báo validation bằng cache VMD walk-forward của component đó.
-                                pred = self._predict_component_from_cache(model, component, val_cache, val, spec, "validation", candidate_id)
-                            except (ValueError, KeyError, IndexError):
-                                # Bỏ candidate lỗi do thiếu lag, thiếu component hoặc history chưa đủ dài.
-                                continue
-                            row = {
-                                "candidate_id": candidate_id,
-                                "component": component,
-                                "lag_spec": spec.label,
-                                "target_lags": spec.target_lags,
-                                "exog_lags": spec.exog_lags,
-                                "HR": int(hidden_units),
-                                "hidden_layer_sizes": self.config.ffnn.architecture_for(int(hidden_units)),
-                                "alpha": float(alpha),
-                                "seed": int(seed),
-                                "n_train": n_train,
-                                "n_val": len(pred),
-                                "forecast_safe_no_exog_lag0": True,
-                            }
-                            candidate_rows.append(row)
-                            candidate_predictions[component].append(pred)
-                            # Audit từng candidate validation để biết spec nào sinh forecast nào.
-                            audit.extend(self._audit_rows("cached_vmd", "validation_cache", "validation", pred, spec, self._feature_names(spec)))
-                            candidate_id += 1
+            rows_for_component, preds_for_component, final_ids, candidate_id = self._ffnn_search_candidates(
+                component=component,
+                train_data=train_component,
+                specs=self.selected_specs_[component],
+                prediction_fn=lambda model, spec, row_id, component=component: self._predict_component_from_cache(
+                    model, component, val_cache, val, spec, "validation", row_id
+                ),
+                scoring_fn=lambda pred: self._score_component_prediction(pred, val),
+                uses_vmd=True,
+                candidate_id_start=candidate_id,
+            )
+            candidate_rows.extend(rows_for_component)
+            pred_by_id.update(preds_for_component)
+            candidate_predictions[component] = [preds_for_component[row_id] for row_id in final_ids]
+            for row in rows_for_component:
+                spec = LagSpec(tuple(row["target_lags"]), {k: tuple(v) for k, v in row["exog_lags"].items()})
+                audit.extend(
+                    self._audit_rows(
+                        "cached_vmd",
+                        f"validation_cache_{row['search_stage']}",
+                        "validation",
+                        preds_for_component[int(row["candidate_id"])],
+                        spec,
+                        self._feature_names(spec),
+                    )
+                )
             if not candidate_predictions[component]:
                 raise ValueError(f"No cached VMD validation candidates for {component}.")
 
@@ -782,14 +1132,14 @@ class VMDARDLFFNNExperiment:
                 scored.append({"candidate_id": int(frame["candidate_id"].iloc[0]), **{f"Component Val {k}": v for k, v in metrics.items()}})
             component_ranked[component] = pd.DataFrame(scored).sort_values(["Component Val RMSE", "Component Val MAE", "Component Val MAPE"])
 
-        # Giữ tối đa 5 candidate tốt nhất mỗi component để giảm số tổ hợp cần thử.
+        # Giữ một số ít candidate tốt nhất mỗi component để giảm số tổ hợp cần thử.
+        top_component_candidates = max(1, int(self.config.ffnn.top_component_candidates))
         top_by_component = {
-            component: ranked.head(min(5, len(ranked)))["candidate_id"].astype(int).tolist()
+            component: ranked.head(min(top_component_candidates, len(ranked)))["candidate_id"].astype(int).tolist()
             for component, ranked in component_ranked.items()
         }
-        # Map nhanh candidate_id sang DataFrame dự báo validation của candidate đó.
-        pred_by_id = {
-            int(frame["candidate_id"].iloc[0]): frame
+        final_component_candidate_ids = {
+            int(frame["candidate_id"].iloc[0])
             for frames in candidate_predictions.values()
             for frame in frames
         }
@@ -802,12 +1152,15 @@ class VMDARDLFFNNExperiment:
             metric = evaluate_forecast(reconstructed["actual_raw_transformed"], reconstructed["predicted_reconstructed"])
             row = {"combo_id": combo_id, "component_candidate_ids": tuple(int(x) for x in ids)}
             row.update({f"{component}_candidate_id": int(candidate) for component, candidate in zip(component_order, ids)})
+            row["search_strategy"] = self.config.ffnn.search_strategy.lower().replace("-", "_")
+            row["top_component_candidates"] = top_component_candidates
             row.update({f"Val {k}": v for k, v in metric.items()})
             combo_rows.append(row)
         # Combo tốt nhất được chọn bằng metric reconstructed trên validation.
         combo_df = pd.DataFrame(combo_rows).sort_values(["Val RMSE", "Val MAE", "Val MAPE"]).reset_index(drop=True)
 
         candidates_df = pd.DataFrame(candidate_rows)
+        candidates_df["eligible_final_selection"] = candidates_df["candidate_id"].isin(final_component_candidate_ids)
         self.search_results_ = combo_df
         # Lấy danh sách candidate_id thắng, mỗi id tương ứng một component model.
         best_ids = tuple(int(x) for x in combo_df.iloc[0]["component_candidate_ids"])
@@ -855,6 +1208,7 @@ class VMDARDLFFNNExperiment:
 
         # Ghi artifact chính của pipeline cached VMD ra output_dir.
         combo_df.to_csv(self.output_dir / "ffnn_validation_search_cached_vmd.csv", index=False)
+        candidates_df.to_csv(self.output_dir / "ffnn_component_validation_search_cached_vmd.csv", index=False)
         self.best_component_models_.to_csv(self.output_dir / "best_component_models_cached_vmd.csv", index=False)
         self.component_forecasts_.to_csv(self.output_dir / "component_predictions_cached_vmd.csv", index=False)
         self.final_forecasts_.to_csv(self.output_dir / "final_reconstructed_forecasts_cached_vmd.csv", index=False)
@@ -872,6 +1226,7 @@ class VMDARDLFFNNExperiment:
         self._plot_actual_predicted(self.final_forecasts_, "test", "actual_raw_transformed", "predicted_reconstructed", "actual_vs_predicted_test_cached_vmd.png")
         return {
             "search_results": combo_df,
+            "component_search_results": candidates_df,
             "ardl_orders": ardl_orders,
             "best_component_models": self.best_component_models_,
             "component_forecasts": self.component_forecasts_,
@@ -880,6 +1235,55 @@ class VMDARDLFFNNExperiment:
             "input_audit": self.input_audit_,
             "stationarity_screen": self.stationarity_screen_,
             **diagnostics,
+        }
+
+    def run_comparison(self, csv_path: str | Path) -> dict[str, pd.DataFrame]:
+        """Chạy cả no-VMD và cached VMD, rồi xuất bảng/biểu đồ so sánh chung."""
+        self._log("Starting no-VMD vs cached VMD comparison run.")
+        # Dùng hai instance riêng để state chọn lag/model/forecast không ghi đè lẫn nhau.
+        no_vmd_experiment = VMDARDLFFNNExperiment(self.config)
+        no_vmd_result = no_vmd_experiment.run_without_vmd(csv_path)
+        vmd_experiment = VMDARDLFFNNExperiment(self.config)
+        vmd_result = vmd_experiment.run(csv_path)
+
+        comparison_table = self._comparison_table(
+            no_vmd_result["final_metrics"],
+            vmd_result["final_metrics"],
+        )
+        comparison_forecasts = pd.concat(
+            [
+                self._comparison_forecast_frame(
+                    no_vmd_result["final_forecasts"],
+                    "no_vmd",
+                    "predicted_raw_transformed",
+                ),
+                self._comparison_forecast_frame(
+                    vmd_result["final_forecasts"],
+                    "cached_vmd",
+                    "predicted_reconstructed",
+                ),
+            ],
+            ignore_index=True,
+        ).sort_values(["split", "date", "pipeline"]).reset_index(drop=True)
+
+        comparison_table.to_csv(self.output_dir / "vmd_vs_no_vmd_metrics_comparison.csv", index=False)
+        comparison_forecasts.to_csv(self.output_dir / "vmd_vs_no_vmd_forecasts_comparison.csv", index=False)
+        self._plot_comparison_predictions(
+            comparison_forecasts,
+            "validation",
+            "actual_vs_predicted_val_vmd_vs_no_vmd.png",
+        )
+        self._plot_comparison_predictions(
+            comparison_forecasts,
+            "test",
+            "actual_vs_predicted_test_vmd_vs_no_vmd.png",
+        )
+
+        return {
+            "comparison_metrics": comparison_table,
+            "comparison_forecasts": comparison_forecasts,
+            "no_vmd": no_vmd_result,
+            "cached_vmd": vmd_result,
         }
 
 

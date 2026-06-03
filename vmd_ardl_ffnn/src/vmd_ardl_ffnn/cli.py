@@ -29,12 +29,47 @@ def main() -> None:
     parser.add_argument("--max-target-lag", type=int, default=12)
     parser.add_argument("--max-exog-lag", type=int, default=6)
     parser.add_argument("--top-n", type=int, default=3)
-    parser.add_argument("--hr", type=int, nargs="+", default=[4, 8, 12, 16])
+    parser.add_argument(
+        "--target-lag-strategy",
+        choices=["validation-screen", "ic-topk", "fixed"],
+        default="validation-screen",
+        help="How target autoregressive lags are selected before FFNN search.",
+    )
+    parser.add_argument("--fixed-target-lags", type=int, nargs="+", default=[1, 12])
+    parser.add_argument("--target-lag-top-n", type=int, default=2)
+    parser.add_argument(
+        "--target-lag-preset",
+        choices=["acf-pacf", "monthly", "daily", "yearly"],
+        default="acf-pacf",
+        help="Preset target-lag candidate sets for validation-screen.",
+    )
+    parser.add_argument("--target-lag-acf-pacf-top-n", type=int, default=3)
+    parser.add_argument("--target-lag-acf-pacf-max-lags-per-set", type=int, default=3)
+    parser.add_argument("--no-force-target-lag-1", action="store_true")
+    parser.add_argument("--hr", type=int, nargs="+", default=[1, 4, 8, 12, 16])
     parser.add_argument("--max-iter", type=int, default=500)
+    parser.add_argument(
+        "--search-strategy",
+        choices=["staged-halving", "full-grid"],
+        default="staged-halving",
+        help="FFNN search budget strategy.",
+    )
+    parser.add_argument(
+        "--lag-spec-strategy",
+        choices=["staged", "full-product"],
+        default="staged",
+        help="How ARDL top lags are converted into FFNN lag specs.",
+    )
+    parser.add_argument("--max-lag-specs", type=int, default=16)
+    parser.add_argument("--top-k-lag-specs", type=int, default=4)
+    parser.add_argument("--top-component-candidates", type=int, default=3)
+    parser.add_argument("--fast-max-iter", type=int, default=150)
+    parser.add_argument("--fast-hr", type=int, default=8)
+    parser.add_argument("--fast-alpha", type=float, default=1e-3)
     parser.add_argument("--no-stationarity", action="store_true")
     parser.add_argument(
         "--pipeline",
-        choices=["vmd", "no-vmd"],
+        choices=["vmd", "no-vmd", "both"],
         default="vmd",
         help="Forecasting pipeline to run.",
     )
@@ -49,17 +84,52 @@ def main() -> None:
             log_transform=not args.no_log,
         ),
         vmd=replace(VMDConfig(), modes=args.vmd_modes),
-        ardl=replace(ARDLSelectionConfig(), max_target_lag=args.max_target_lag, max_exog_lag=args.max_exog_lag, top_n=args.top_n),
-        ffnn=replace(FFNNConfig(), hidden_units_candidates=tuple(args.hr), max_iter=args.max_iter),
+        ardl=replace(
+            ARDLSelectionConfig(),
+            max_target_lag=args.max_target_lag,
+            max_exog_lag=args.max_exog_lag,
+            top_n=args.top_n,
+            target_lag_strategy=args.target_lag_strategy.replace("-", "_"),
+            fixed_target_lags=tuple(args.fixed_target_lags),
+            target_lag_top_n=args.target_lag_top_n,
+            target_lag_preset=args.target_lag_preset.replace("-", "_"),
+            target_lag_acf_pacf_top_n=args.target_lag_acf_pacf_top_n,
+            target_lag_acf_pacf_max_lags_per_set=args.target_lag_acf_pacf_max_lags_per_set,
+            force_target_lag_1=not args.no_force_target_lag_1,
+            lag_spec_strategy=args.lag_spec_strategy.replace("-", "_"),
+            max_lag_specs=args.max_lag_specs,
+        ),
+        ffnn=replace(
+            FFNNConfig(),
+            hidden_units_candidates=tuple(args.hr),
+            max_iter=args.max_iter,
+            search_strategy=args.search_strategy.replace("-", "_"),
+            fast_hidden_units=args.fast_hr,
+            fast_alpha=args.fast_alpha,
+            fast_max_iter=args.fast_max_iter,
+            top_k_lag_specs=args.top_k_lag_specs,
+            top_component_candidates=args.top_component_candidates,
+        ),
         stationarity=replace(StationarityConfig(), enabled=not args.no_stationarity),
         output_dir=Path(args.out),
     )
     experiment = VMDARDLFFNNExperiment(config)
-    result = experiment.run_without_vmd(args.data) if args.pipeline == "no-vmd" else experiment.run(args.data)
-    print("Best model rows:")
-    print(result["best_component_models"].to_string(index=False))
-    print("\nFinal metrics:")
-    print(result["final_metrics"].to_string(index=False))
+    if args.pipeline == "no-vmd":
+        result = experiment.run_without_vmd(args.data)
+        print("Best model rows:")
+        print(result["best_component_models"].to_string(index=False))
+        print("\nFinal metrics:")
+        print(result["final_metrics"].to_string(index=False))
+    elif args.pipeline == "both":
+        result = experiment.run_comparison(args.data)
+        print("VMD vs no-VMD comparison metrics:")
+        print(result["comparison_metrics"].to_string(index=False))
+    else:
+        result = experiment.run(args.data)
+        print("Best model rows:")
+        print(result["best_component_models"].to_string(index=False))
+        print("\nFinal metrics:")
+        print(result["final_metrics"].to_string(index=False))
 
 
 if __name__ == "__main__":
