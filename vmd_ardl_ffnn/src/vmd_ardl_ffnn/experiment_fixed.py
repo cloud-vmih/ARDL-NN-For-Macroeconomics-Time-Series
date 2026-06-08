@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from dataclasses import replace
 from itertools import product
 import os
@@ -16,7 +17,7 @@ from .diagnostics import ForecastDiagnostics
 from .features import LagSpec
 from .lag_selection import ARDLOrderSelector
 from .metrics import evaluate_forecast
-from .models.ffnn import SklearnFFNNRegressor
+from .models.ffnn import NumpyFFNNRegressor
 
 
 class VMDARDLFFNNExperiment:
@@ -259,11 +260,12 @@ class VMDARDLFFNNExperiment:
         self,
         data: pd.DataFrame,
         spec: LagSpec,
-        hidden_units: int,
+        hidden_layer_sizes: tuple[int, ...],
         alpha: float,
         seed: int,
+        activation: str | None = None,
         max_iter: int | None = None,
-    ) -> tuple[SklearnFFNNRegressor, int]:
+    ) -> tuple[NumpyFFNNRegressor, int]:
         """Fit FFNN cho một LagSpec và trả về model kèm số dòng train hợp lệ.
         Dữ liệu được chuyển sang ma trận supervised trước khi kiểm tra min_train.
         """
@@ -271,24 +273,39 @@ class VMDARDLFFNNExperiment:
         supervised = self._build_supervised(data, spec)
         if len(supervised) < self.config.ffnn.min_train:
             raise ValueError(f"Only {len(supervised)} training rows after lagging.")
-        # FFNN wrapper tự chuẩn hóa X và y để MLPRegressor học ổn định hơn.
-        model = SklearnFFNNRegressor(
-            hidden_layer_sizes=self.config.ffnn.architecture_for(hidden_units),
+        # FFNN NumPy wrapper tự chuẩn hóa X và y để huấn luyện ổn định hơn.
+        model = NumpyFFNNRegressor(
+            hidden_layer_sizes=tuple(int(size) for size in hidden_layer_sizes),
             alpha=alpha,
             seed=seed,
-            activation=self.config.ffnn.activation,
+            activation=(activation or self.config.ffnn.activation),
             learning_rate_init=self.config.ffnn.learning_rate_init,
             max_iter=self.config.ffnn.max_iter if max_iter is None else int(max_iter),
         ).fit(supervised[self._feature_names(spec)].to_numpy(float), supervised[self.target].to_numpy(float))
         # Trả kèm số dòng train thật sự sau khi mất dữ liệu do lag.
         return model, len(supervised)
 
+    @staticmethod
+    def _hidden_layer_sizes_from_row(row: pd.Series) -> tuple[int, ...]:
+        """Khôi phục tuple kiến trúc từ dòng kết quả search."""
+        value = row.get("hidden_layer_sizes")
+        if isinstance(value, tuple):
+            return tuple(max(1, int(size)) for size in value)
+        if isinstance(value, list):
+            return tuple(max(1, int(size)) for size in value)
+        if isinstance(value, str):
+            parsed = ast.literal_eval(value)
+            if isinstance(parsed, int):
+                return (max(1, int(parsed)),)
+            return tuple(max(1, int(size)) for size in parsed)
+        return (max(1, int(row["HR"])),)
+
     def _ffnn_search_candidates(
         self,
         component: str,
         train_data: pd.DataFrame,
         specs: list[LagSpec],
-        prediction_fn: Callable[[SklearnFFNNRegressor, LagSpec, int], pd.DataFrame],
+        prediction_fn: Callable[[NumpyFFNNRegressor, LagSpec, int], pd.DataFrame],
         scoring_fn: Callable[[pd.DataFrame], dict[str, float]],
         uses_vmd: bool,
         candidate_id_start: int = 0,
@@ -305,9 +322,10 @@ class VMDARDLFFNNExperiment:
 
         def fit_score_candidate(
             spec: LagSpec,
-            hidden_units: int,
+            hidden_layer_sizes: tuple[int, ...],
             alpha: float,
             seed: int,
+            activation: str,
             max_iter: int,
             search_stage: str,
             selected_for_hyperparam_search: bool,
@@ -318,9 +336,10 @@ class VMDARDLFFNNExperiment:
                 model, n_train = self._fit_model(
                     train_data,
                     spec,
-                    int(hidden_units),
+                    hidden_layer_sizes,
                     float(alpha),
                     int(seed),
+                    activation,
                     max_iter=int(max_iter),
                 )
                 pred = prediction_fn(model, spec, candidate_id)
@@ -335,10 +354,13 @@ class VMDARDLFFNNExperiment:
                 "lag_spec": spec.label,
                 "target_lags": spec.target_lags,
                 "exog_lags": spec.exog_lags,
-                "HR": int(hidden_units),
-                "hidden_layer_sizes": self.config.ffnn.architecture_for(int(hidden_units)),
+                "HR": int(hidden_layer_sizes[0]),
+                "hidden_layers": len(hidden_layer_sizes),
+                "hidden_units_per_layer": int(hidden_layer_sizes[0]),
+                "hidden_layer_sizes": hidden_layer_sizes,
                 "alpha": float(alpha),
                 "seed": int(seed),
+                "activation": activation,
                 "max_iter": int(max_iter),
                 "n_train": n_train,
                 "n_val": len(pred),
@@ -357,11 +379,13 @@ class VMDARDLFFNNExperiment:
         if strategy == "staged_halving":
             screen_rows: list[dict[str, Any]] = []
             for spec in specs:
+                n_features = len(self._feature_names(spec))
                 current_id, row, pred = fit_score_candidate(
                     spec,
-                    self.config.ffnn.fast_hidden_units,
+                    self.config.ffnn.fast_architecture_for(n_features),
                     self.config.ffnn.fast_alpha,
                     self.config.ffnn.seed_grid[0],
+                    self.config.ffnn.activation,
                     self.config.ffnn.fast_max_iter,
                     "lag_screen",
                     False,
@@ -385,30 +409,33 @@ class VMDARDLFFNNExperiment:
             fast_rmse_by_label = {}
 
         for spec in search_specs:
-            for hidden_units in self.config.ffnn.hidden_units_candidates:
+            n_features = len(self._feature_names(spec))
+            for hidden_layer_sizes in self.config.ffnn.architectures_for(n_features):
                 for alpha in self.config.ffnn.alpha_grid:
                     for seed in self.config.ffnn.seed_grid:
-                        current_id, row, pred = fit_score_candidate(
-                            spec,
-                            int(hidden_units),
-                            float(alpha),
-                            int(seed),
-                            self.config.ffnn.max_iter,
-                            "hyperparam_search" if strategy == "staged_halving" else "full_grid",
-                            True,
-                            fast_rmse_by_label.get(spec.label),
-                        )
-                        if current_id is None or row is None or pred is None:
-                            continue
-                        rows.append(row)
-                        pred_by_id[current_id] = pred
-                        final_candidate_ids.append(current_id)
+                        for activation in self.config.ffnn.activation_grid:
+                            current_id, row, pred = fit_score_candidate(
+                                spec,
+                                hidden_layer_sizes,
+                                float(alpha),
+                                int(seed),
+                                str(activation),
+                                self.config.ffnn.max_iter,
+                                "hyperparam_search" if strategy == "staged_halving" else "full_grid",
+                                True,
+                                fast_rmse_by_label.get(spec.label),
+                            )
+                            if current_id is None or row is None or pred is None:
+                                continue
+                            rows.append(row)
+                            pred_by_id[current_id] = pred
+                            final_candidate_ids.append(current_id)
 
         return rows, pred_by_id, final_candidate_ids, candidate_id
 
     def _batch_predict_observed(
         self,
-        model: SklearnFFNNRegressor,
+        model: NumpyFFNNRegressor,
         observed: pd.DataFrame,
         eval_index: pd.Index,
         spec: LagSpec,
@@ -480,7 +507,7 @@ class VMDARDLFFNNExperiment:
         self,
         component: str,
         train_frame: pd.DataFrame,
-        prediction_fn: Callable[[SklearnFFNNRegressor, LagSpec, int], pd.DataFrame],
+        prediction_fn: Callable[[NumpyFFNNRegressor, LagSpec, int], pd.DataFrame],
         scoring_fn: Callable[[pd.DataFrame], dict[str, float]],
     ) -> tuple[tuple[int, ...], pd.DataFrame]:
         """Select target lags by cheap FFNN validation screening."""
@@ -506,12 +533,14 @@ class VMDARDLFFNNExperiment:
             }
             try:
                 spec = self._target_lag_screen_spec(train_frame, tuple(target_lags))
+                n_features = len(self._feature_names(spec))
                 model, n_train = self._fit_model(
                     train_frame,
                     spec,
-                    int(self.config.ffnn.fast_hidden_units),
+                    self.config.ffnn.fast_architecture_for(n_features),
                     float(self.config.ffnn.fast_alpha),
                     int(self.config.ffnn.seed_grid[0]),
+                    self.config.ffnn.activation,
                     max_iter=int(self.config.ffnn.fast_max_iter),
                 )
                 pred = prediction_fn(model, spec, candidate_id)
@@ -663,6 +692,33 @@ class VMDARDLFFNNExperiment:
                 rows.append(level_row)
         return pd.DataFrame(rows)
 
+    def _annotate_final_metrics(
+        self,
+        metrics: pd.DataFrame,
+        csv_path: str | Path,
+        model: str,
+        uses_vmd: bool,
+        best_models: pd.DataFrame | None = None,
+    ) -> pd.DataFrame:
+        """Gắn metadata run vào từng dòng final metric trước khi ghi/return."""
+        out = metrics.copy()
+        out.insert(0, "dataset", Path(csv_path).stem)
+        out.insert(1, "model", model)
+        out.insert(2, "uses_vmd", bool(uses_vmd))
+        out.insert(3, "vmd_setting", "cached_vmd" if uses_vmd else "no_vmd")
+        out.insert(4, "vmd_modes", int(self.config.vmd.modes) if uses_vmd else 0)
+        if best_models is not None and "activation" in best_models.columns:
+            activations = sorted({str(value) for value in best_models["activation"].dropna().tolist()})
+            out.insert(5, "activation", ",".join(activations))
+        else:
+            out.insert(5, "activation", self.config.ffnn.activation)
+        return out
+
+    def _append_csv(self, frame: pd.DataFrame, path: Path) -> None:
+        """Append CSV, chỉ ghi header khi file chưa tồn tại hoặc đang rỗng."""
+        write_header = not path.exists() or path.stat().st_size == 0
+        frame.to_csv(path, mode="a", header=write_header, index=False)
+
     def _to_level(
         self,
         frame: pd.DataFrame,
@@ -744,7 +800,12 @@ class VMDARDLFFNNExperiment:
             ],
             ignore_index=True,
         )
-        metric_cols = [col for col in combined.columns if col not in {"split", "scale", "pipeline"}]
+        metadata_cols = {"dataset", "model", "uses_vmd", "vmd_setting", "vmd_modes", "activation", "split", "scale", "pipeline"}
+        metric_cols = [
+            col
+            for col in combined.columns
+            if col not in metadata_cols and pd.api.types.is_numeric_dtype(combined[col])
+        ]
         rows: list[dict[str, Any]] = []
         for (split, scale), group in combined.groupby(["split", "scale"], sort=False):
             row: dict[str, Any] = {"split": split, "scale": scale}
@@ -925,7 +986,14 @@ class VMDARDLFFNNExperiment:
         best_spec = LagSpec(tuple(best["target_lags"]), {k: tuple(v) for k, v in best["exog_lags"].items()})
         self._log("Refitting locked no-VMD winner on train+validation.")
         # Refit winner trên train+validation sau khi hyperparameter đã khóa bằng validation.
-        best_model, n_refit = self._fit_model(pd.concat([train, val]), best_spec, int(best["HR"]), float(best["alpha"]), int(best["seed"]))
+        best_model, n_refit = self._fit_model(
+            pd.concat([train, val]),
+            best_spec,
+            self._hidden_layer_sizes_from_row(best),
+            float(best["alpha"]),
+            int(best["seed"]),
+            str(best.get("activation", self.config.ffnn.activation)),
+        )
         # Giữ nguyên validation forecast của winner để final_forecasts gồm cả val và test.
         val_forecasts = val_frames[int(best["candidate_id"])].rename(columns={"actual": "actual_raw_transformed", "predicted": "predicted_raw_transformed"})
         # Test forecast dùng model đã refit và lịch sử train+validation+test quan sát.
@@ -933,11 +1001,17 @@ class VMDARDLFFNNExperiment:
             best_model, pd.concat([train, val, test]), test.index, best_spec, "test", component
         ).rename(columns={"actual": "actual_raw_transformed", "predicted": "predicted_raw_transformed"})
         final = pd.concat([val_forecasts, test_forecasts], ignore_index=True)
-        # Metric có thể thêm cột level vào final khi cần đảo log/diff.
-        self.final_metrics_ = self._metrics_rows(final, "actual_raw_transformed", "predicted_raw_transformed", "raw_transformed")
-        self.final_forecasts_ = final.sort_values(["split", "date"]).reset_index(drop=True)
         best_model_df = pd.DataFrame([{**best.to_dict(), "n_refit_train_val": n_refit}])
         self.best_component_models_ = best_model_df
+        # Metric có thể thêm cột level vào final khi cần đảo log/diff.
+        self.final_metrics_ = self._annotate_final_metrics(
+            self._metrics_rows(final, "actual_raw_transformed", "predicted_raw_transformed", "raw_transformed"),
+            csv_path,
+            "ARDL_FFNN",
+            False,
+            best_model_df,
+        )
+        self.final_forecasts_ = final.sort_values(["split", "date"]).reset_index(drop=True)
         audit.extend(self._audit_rows("no_vmd", "test_design", "test", test_forecasts, best_spec, self._feature_names(best_spec)))
         self.input_audit_ = pd.DataFrame(audit)
 
@@ -948,7 +1022,7 @@ class VMDARDLFFNNExperiment:
         self.search_results_.to_csv(self.output_dir / "ffnn_validation_search_fixed_no_vmd.csv", index=False)
         best_model_df.to_csv(self.output_dir / "best_model_fixed_no_vmd.csv", index=False)
         self.final_forecasts_.to_csv(self.output_dir / "final_forecasts_fixed_no_vmd.csv", index=False)
-        self.final_metrics_.to_csv(self.output_dir / "final_metrics_fixed_no_vmd.csv", index=False)
+        self._append_csv(self.final_metrics_, self.output_dir / "final_metrics_fixed_no_vmd.csv")
         self.input_audit_.to_csv(self.output_dir / "input_audit_no_vmd.csv", index=False)
         if self.stationarity_screen_ is not None:
             self.stationarity_screen_.to_csv(
@@ -992,15 +1066,41 @@ class VMDARDLFFNNExperiment:
             history = pd.concat([history, row.to_frame().T], axis=0)
         return cache
 
+    def _make_actual_component_cache(
+        self,
+        initial_history: pd.DataFrame,
+        evaluation: pd.DataFrame,
+        split: str,
+    ) -> dict[pd.Timestamp, dict[str, float]]:
+        """Lấy actual target component tại từng origin bằng expanding-history VMD.
+
+        Với date hiện tại, cache này chỉ phân rã history + actual của chính date đó.
+        Nó không nhìn các dòng tương lai nhưng vẫn tạo được nhãn component để chấm
+        component-level forecast đúng thang đo.
+        """
+        self._log(f"Creating {split} VMD actual-component cache ({len(evaluation)} timestamps).")
+        history = initial_history.copy()
+        actual_components: dict[pd.Timestamp, dict[str, float]] = {}
+        for date, row in evaluation.iterrows():
+            current_history = pd.concat([history, row.to_frame().T], axis=0)
+            decomposed = self.decompose(current_history)
+            actual_components[pd.Timestamp(date)] = {
+                component: float(component_frame.loc[date, self.target])
+                for component, component_frame in decomposed.items()
+            }
+            history = current_history
+        return actual_components
+
     def _predict_component_from_cache(
         self,
-        model: SklearnFFNNRegressor,
+        model: NumpyFFNNRegressor,
         component: str,
         cache: dict[pd.Timestamp, dict[str, pd.DataFrame]],
         actual_raw: pd.DataFrame,
         spec: LagSpec,
         split: str,
         candidate_id: int | None = None,
+        actual_components: dict[pd.Timestamp, dict[str, float]] | None = None,
     ) -> pd.DataFrame:
         """Dự báo một component VMD bằng lịch sử đã cache tại từng timestamp.
         Kết quả có thể gắn candidate_id để phục vụ chấm điểm và ghép tổ hợp.
@@ -1017,6 +1117,8 @@ class VMDARDLFFNNExperiment:
                 "component": component,
                 "predicted_component": predicted,
             }
+            if actual_components is not None:
+                row["actual_component"] = actual_components[pd.Timestamp(date)][component]
             if candidate_id is not None:
                 row["candidate_id"] = candidate_id
             rows.append(row)
@@ -1037,12 +1139,9 @@ class VMDARDLFFNNExperiment:
         return out
 
     def _score_component_prediction(self, prediction: pd.DataFrame, actual_raw: pd.DataFrame) -> dict[str, float]:
-        """Score one VMD component candidate after reconstructing its validation path."""
-        reconstructed = self._reconstruct(prediction, actual_raw)
-        return evaluate_forecast(
-            reconstructed["actual_raw_transformed"],
-            reconstructed["predicted_reconstructed"],
-        )
+        """Score one VMD component candidate on its own component scale."""
+        del actual_raw
+        return evaluate_forecast(prediction["actual_component"], prediction["predicted_component"])
 
     def run(self, csv_path: str | Path) -> dict[str, pd.DataFrame]:
         """Chạy pipeline VMD đầy đủ với cache walk-forward chống leakage.
@@ -1071,6 +1170,7 @@ class VMDARDLFFNNExperiment:
         train_components = self.decompose(train)
         # Cache validation theo origin để VMD không thấy điểm validation tương lai.
         val_cache = self._make_origin_cache(train, val, "validation")
+        val_actual_components = self._make_actual_component_cache(train, val, "validation")
         target_lags_by_frame: dict[str, tuple[int, ...]] = {}
         target_lag_screen_tables: dict[str, pd.DataFrame] = {}
         if self._uses_validation_target_lag_screen():
@@ -1080,7 +1180,7 @@ class VMDARDLFFNNExperiment:
                     component=component,
                     train_frame=train_component,
                     prediction_fn=lambda model, spec, candidate_id, component=component: self._predict_component_from_cache(
-                        model, component, val_cache, val, spec, "validation", candidate_id
+                        model, component, val_cache, val, spec, "validation", candidate_id, val_actual_components
                     ),
                     scoring_fn=lambda pred: self._score_component_prediction(pred, val),
                 )
@@ -1098,7 +1198,7 @@ class VMDARDLFFNNExperiment:
                 train_data=train_component,
                 specs=self.selected_specs_[component],
                 prediction_fn=lambda model, spec, row_id, component=component: self._predict_component_from_cache(
-                    model, component, val_cache, val, spec, "validation", row_id
+                    model, component, val_cache, val, spec, "validation", row_id, val_actual_components
                 ),
                 scoring_fn=lambda pred: self._score_component_prediction(pred, val),
                 uses_vmd=True,
@@ -1126,9 +1226,8 @@ class VMDARDLFFNNExperiment:
         for component, frames in candidate_predictions.items():
             scored = []
             for frame in frames:
-                # Chấm candidate component bằng cách reconstruct riêng candidate đó trên validation.
-                reconstructed = self._reconstruct(frame, val)
-                metrics = evaluate_forecast(reconstructed["actual_raw_transformed"], reconstructed["predicted_reconstructed"])
+                # Chấm candidate component trên đúng actual component, không so với target tổng.
+                metrics = evaluate_forecast(frame["actual_component"], frame["predicted_component"])
                 scored.append({"candidate_id": int(frame["candidate_id"].iloc[0]), **{f"Component Val {k}": v for k, v in metrics.items()}})
             component_ranked[component] = pd.DataFrame(scored).sort_values(["Component Val RMSE", "Component Val MAE", "Component Val MAPE"])
 
@@ -1173,6 +1272,7 @@ class VMDARDLFFNNExperiment:
         history_components = self.decompose(history_before_test)
         # Test cache cũng walk-forward: mỗi test date chỉ thấy lịch sử trước date.
         test_cache = self._make_origin_cache(history_before_test, test, "test")
+        test_actual_components = self._make_actual_component_cache(history_before_test, test, "test")
         selected_component_predictions: list[pd.DataFrame] = []
         # Forecast validation của winner được giữ lại để báo cáo cùng test.
         val_selected = [pred_by_id[candidate_id] for candidate_id in best_ids]
@@ -1182,9 +1282,25 @@ class VMDARDLFFNNExperiment:
             # Khôi phục LagSpec và hyperparameter của component winner.
             spec = LagSpec(tuple(best["target_lags"]), {k: tuple(v) for k, v in best["exog_lags"].items()})
             # Refit component winner trên component history train+validation.
-            model, n_refit = self._fit_model(history_components[component], spec, int(best["HR"]), float(best["alpha"]), int(best["seed"]))
+            model, n_refit = self._fit_model(
+                history_components[component],
+                spec,
+                self._hidden_layer_sizes_from_row(best),
+                float(best["alpha"]),
+                int(best["seed"]),
+                str(best.get("activation", self.config.ffnn.activation)),
+            )
             # Dự báo test component bằng model refit và cache VMD test.
-            test_pred = self._predict_component_from_cache(model, component, test_cache, test, spec, "test", int(best["candidate_id"]))
+            test_pred = self._predict_component_from_cache(
+                model,
+                component,
+                test_cache,
+                test,
+                spec,
+                "test",
+                int(best["candidate_id"]),
+                test_actual_components,
+            )
             selected_component_predictions.append(test_pred)
             best_candidates.loc[best_candidates["candidate_id"].eq(best["candidate_id"]), "n_refit_train_val"] = n_refit
             audit.extend(self._audit_rows("cached_vmd", "test_cache", "test", test_pred, spec, self._feature_names(spec)))
@@ -1194,13 +1310,19 @@ class VMDARDLFFNNExperiment:
         actual_all = pd.concat([val, test], axis=0)
         self.final_forecasts_ = self._reconstruct(self.component_forecasts_, actual_all).reset_index(drop=True)
         # Metric cuối được tính trên reconstructed transformed và level nếu có thể đảo.
-        self.final_metrics_ = self._metrics_rows(
-            self.final_forecasts_,
-            "actual_raw_transformed",
-            "predicted_reconstructed",
-            "reconstructed_transformed",
-        )
         self.best_component_models_ = best_candidates.sort_values("component").reset_index(drop=True)
+        self.final_metrics_ = self._annotate_final_metrics(
+            self._metrics_rows(
+                self.final_forecasts_,
+                "actual_raw_transformed",
+                "predicted_reconstructed",
+                "reconstructed_transformed",
+            ),
+            csv_path,
+            "VMD_ARDL_FFNN",
+            True,
+            self.best_component_models_,
+        )
         self.input_audit_ = pd.DataFrame(audit)
         diagnostics = self._diagnostics(train, train_components, "_cached_vmd")
         # Gộp mọi bảng ARDL order theo component để xuất audit chọn lag.
@@ -1212,7 +1334,7 @@ class VMDARDLFFNNExperiment:
         self.best_component_models_.to_csv(self.output_dir / "best_component_models_cached_vmd.csv", index=False)
         self.component_forecasts_.to_csv(self.output_dir / "component_predictions_cached_vmd.csv", index=False)
         self.final_forecasts_.to_csv(self.output_dir / "final_reconstructed_forecasts_cached_vmd.csv", index=False)
-        self.final_metrics_.to_csv(self.output_dir / "final_reconstructed_metrics_cached_vmd.csv", index=False)
+        self._append_csv(self.final_metrics_, self.output_dir / "final_reconstructed_metrics_cached_vmd.csv")
         self.input_audit_.to_csv(self.output_dir / "input_audit_cached_vmd.csv", index=False)
         if self.stationarity_screen_ is not None:
             self.stationarity_screen_.to_csv(

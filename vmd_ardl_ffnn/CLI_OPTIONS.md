@@ -79,20 +79,27 @@ Với `staged`, pipeline không lấy toàn bộ tích Descartes của top lags.
 
 | Option | Default | Choices | Ý nghĩa |
 | --- | --- | --- | --- |
-| `--hr` | `1 4 8 12 16` | one or more integers | Lưới hidden units cho FFNN một hidden layer. |
+| `--hidden-layers` | `1 2 3` | one or more integers | Lưới số hidden layer khi dùng width theo số feature. |
+| `--hidden-width-multipliers` | `1.0 0.5 0.25` | one or more floats | Nhân với số feature để sinh width cho từng hidden layer. |
+| `--hr` | không có | one or more integers | Lưới hidden units legacy cho FFNN một hidden layer; nếu truyền sẽ override `--hidden-layers` và `--hidden-width-multipliers`. |
+| `--activation` | `relu` | `relu`, `tanh` | Activation dùng cho fast screening và fallback khi cần. |
+| `--activation-grid` | `relu tanh` | `relu`, `tanh` | Danh sách activation được tune trong hyperparameter search chính. |
+| `--no-activation-tuning` | `False` | flag | Nếu bật, không tune activation; search chỉ dùng đúng `--activation`. Không dùng chung với `--activation-grid`. |
 | `--max-iter` | `500` | integer | Số iteration tối đa cho FFNN ở search chính/refit. |
 | `--search-strategy` | `staged-halving` | `staged-halving`, `full-grid` | Cách search FFNN. |
 | `--top-k-lag-specs` | `4` | integer | Số `LagSpec` tốt nhất sau fast screen được đưa vào hyperparameter grid khi dùng `staged-halving`. |
 | `--top-component-candidates` | `3` | integer | Với VMD, số candidate tốt nhất mỗi component được dùng để ghép reconstructed forecast. |
 | `--fast-max-iter` | `150` | integer | Iteration tối đa cho FFNN fast-screen. |
-| `--fast-hr` | `8` | integer | Hidden units dùng cho FFNN fast-screen. |
+| `--fast-hr` | không có | integer | Hidden units dùng cho FFNN fast-screen; nếu không truyền, fast width lấy theo số feature. |
+| `--fast-hidden-layers` | `1` | integer | Số hidden layer cho fast-screen khi không dùng `--fast-hr`. |
+| `--fast-hidden-width-multiplier` | `1.0` | float | Multiplier theo số feature cho fast-screen khi không dùng `--fast-hr`. |
 | `--fast-alpha` | `1e-3` | float | Alpha regularization dùng cho FFNN fast-screen. |
 
 Với `staged-halving`, chi phí chính xấp xỉ:
 
 ```text
 max_lag_specs * 1 fast config
-+ top_k_lag_specs * len(hr) * len(alpha_grid) * len(seed_grid)
++ top_k_lag_specs * len(architectures) * len(alpha_grid) * len(seed_grid) * len(activation_grid)
 ```
 
 Trong CLI hiện tại, `alpha_grid` và `seed_grid` không có argument riêng; chúng lấy default từ `FFNNConfig`.

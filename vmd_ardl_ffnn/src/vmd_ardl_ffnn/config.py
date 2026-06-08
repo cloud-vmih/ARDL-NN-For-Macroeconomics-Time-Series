@@ -54,25 +54,55 @@ class ARDLSelectionConfig:
 class FFNNConfig:
     """Cấu hình lưới siêu tham số cho mô hình FFNN."""
 
-    hidden_units_candidates: tuple[int, ...] = (1, 4, 8, 12, 16)
-    alpha_grid: tuple[float, ...] = (1e-4, 1e-3, 1e-2)
-    seed_grid: tuple[int, ...] = (7,)
-    activation: str = "relu"
+    hidden_layer_candidates: tuple[int, ...] = (1, 2, 3)
+    hidden_width_multipliers: tuple[float, ...] = (1.0, 0.5, 0.25)
+    hidden_units_candidates: tuple[int, ...] = tuple()
+    alpha_grid: tuple[float, ...] = (1e-4, 1e-3, 1e-2, 1e-1)
+    seed_grid: tuple[int, ...] = (7, 42, 123)
+    activation: str = "tanh"
+    activation_grid: tuple[str, ...] = ("relu", "tanh")
     learning_rate_init: float = 0.01
     max_iter: int = 500
     min_train: int = 30
     min_val: int = 8
     min_test: int = 8
     search_strategy: str = "staged_halving"
-    fast_hidden_units: int = 8
+    fast_hidden_units: int | None = None
+    fast_hidden_layers: int = 1
+    fast_hidden_width_multiplier: float = 1.0
     fast_alpha: float = 1e-3
     fast_max_iter: int = 150
     top_k_lag_specs: int = 4
     top_component_candidates: int = 3
 
     def architecture_for(self, hidden_units: int) -> tuple[int, ...]:
-        """Trả về kiến trúc FFNN một lớp ẩn."""
-        return (int(hidden_units),)
+        """Trả về kiến trúc legacy một lớp ẩn từ số neuron tuyệt đối."""
+        return (max(1, int(hidden_units)),)
+
+    def architectures_for(self, n_features: int) -> tuple[tuple[int, ...], ...]:
+        """Sinh lưới kiến trúc theo số feature đầu vào của từng LagSpec."""
+        n_features = max(1, int(n_features))
+        if self.hidden_units_candidates:
+            return tuple(self.architecture_for(hidden_units) for hidden_units in self.hidden_units_candidates)
+
+        architectures: list[tuple[int, ...]] = []
+        seen: set[tuple[int, ...]] = set()
+        for layer_count in self.hidden_layer_candidates:
+            layers = max(1, int(layer_count))
+            for multiplier in self.hidden_width_multipliers:
+                width = max(1, int(round(n_features * float(multiplier))))
+                architecture = tuple([width] * layers)
+                if architecture not in seen:
+                    seen.add(architecture)
+                    architectures.append(architecture)
+        return tuple(architectures)
+
+    def fast_architecture_for(self, n_features: int) -> tuple[int, ...]:
+        """Kiến trúc nhẹ dùng ở các bước screening nhanh."""
+        if self.fast_hidden_units is not None:
+            return self.architecture_for(int(self.fast_hidden_units))
+        width = max(1, int(round(max(1, int(n_features)) * float(self.fast_hidden_width_multiplier))))
+        return tuple([width] * max(1, int(self.fast_hidden_layers)))
 
 
 @dataclass(frozen=True)

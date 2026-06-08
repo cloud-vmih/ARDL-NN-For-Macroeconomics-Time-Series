@@ -1,10 +1,7 @@
-Variable,Transform used,Decision basis
-cpi_mom_inflation,level,disabled
-broad_money,level,disabled
-ppi_qoq,level,disabled
-wti,level,disabled
-gold,level,disabled
-policy_rate,level,disabled
-VNINDEX,level,disabled
-NIKKEI225,level,disabled
-USDVND,level,disabled
+Variable,ADF level p,KPSS level p,Level decision,ADF diff1 p,KPSS diff1 p,Diff1 decision,Transform used,Decision basis,Likely I(2)?
+Export_US,0.985538660511609,0.01,Non-stationary,2.799681294240835e-08,0.1,Stationary,diff1,train_only,No
+US_Retail,0.9775121792754318,0.01,Non-stationary,2.5690365750173994e-06,0.1,Stationary,diff1,train_only,No
+PCE,0.9328356171261237,0.01,Non-stationary,1.3434256960355159e-10,0.1,Stationary,diff1,train_only,No
+US_Sentiment,0.36276777847943376,0.01,Non-stationary,1.1533028296652814e-18,0.1,Stationary,diff1,train_only,No
+Import_CN,0.32191522618905677,0.01,Non-stationary,5.5073931678494006e-08,0.1,Stationary,diff1,train_only,No
+USD_VND,0.0012127867503125588,0.01,Mixed/unclear,6.408138810566069e-23,0.02760808436079782,Mixed/unclear,diff1,train_only,Yes

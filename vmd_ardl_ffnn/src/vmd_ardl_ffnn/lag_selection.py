@@ -495,7 +495,7 @@ class ARDLOrderSelector:
         specs: list[LagSpec] = []
         for combo_rank, (lag_combo, combo_score, combo_source) in enumerate(lag_combos, start=1):
             exog_lags = {
-                feature: (int(exog_lag),)
+                feature: tuple(range(1, int(exog_lag) + 1))
                 for feature, exog_lag in zip(features, lag_combo, strict=True)
             }
             spec = LagSpec(target_lags=target_lags, exog_lags=exog_lags)

@@ -1,5 +1,0 @@
-split,scale,no_vmd_RMSE,cached_vmd_RMSE,delta_RMSE_cached_vmd_minus_no_vmd,cached_vmd_improvement_RMSE_pct,no_vmd_MAE,cached_vmd_MAE,delta_MAE_cached_vmd_minus_no_vmd,cached_vmd_improvement_MAE_pct,no_vmd_MAPE,cached_vmd_MAPE,delta_MAPE_cached_vmd_minus_no_vmd,cached_vmd_improvement_MAPE_pct,no_vmd_Directional_Accuracy,cached_vmd_Directional_Accuracy,delta_Directional_Accuracy_cached_vmd_minus_no_vmd
-validation,raw_transformed,0.5310448432934768,,,,0.4036208143399898,,,,97.20030563227962,,,,55.55555555555556,,
-test,raw_transformed,0.569539374567762,,,,0.4368004910218128,,,,190.70886447736072,,,,60.37735849056604,,
-test,reconstructed_transformed,,0.5884002380579498,,,,0.40358639240294397,,,,155.25569976940926,,,,58.490566037735846,
-validation,reconstructed_transformed,,0.514517732416063,,,,0.3793841986567819,,,,91.62553355376025,,,,57.407407407407405,

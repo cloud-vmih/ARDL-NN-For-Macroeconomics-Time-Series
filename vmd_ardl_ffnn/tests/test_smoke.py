@@ -29,6 +29,13 @@ def test_vmd_decomposition_reconstructs_shape() -> None:
     assert all(len(component) == len(series) for component in levels.values())
 
 
+def test_ffnn_architecture_grid_uses_feature_count() -> None:
+    """FFNN grid should search widths derived from n_features and multiple layer counts."""
+    config = FFNNConfig(hidden_layer_candidates=(1, 2), hidden_width_multipliers=(1.0, 2.0, 0.5))
+    assert config.architectures_for(6) == ((6,), (12,), (3,), (6, 6), (12, 12), (3, 3))
+    assert config.fast_architecture_for(6) == (6,)
+
+
 def test_experiment_smoke_run() -> None:
     """Chạy nhanh pipeline VMD và kiểm tra các bảng đầu ra chính."""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -59,7 +66,31 @@ def test_experiment_smoke_run() -> None:
         assert not result["ardl_residual_diagnostics"].empty
         assert "__target_lag_validation_screen__" in set(result["ardl_orders"]["feature"])
         assert set(result["component_forecasts"]["component"]) == {"VMD1", "VMD2", "RES"}
+        assert "actual_component" in result["component_forecasts"].columns
+        assert not result["component_forecasts"]["actual_component"].isna().any()
+        assert set(result["final_forecasts"]["component_count"]) == {3}
         assert int(result["best_component_models"].iloc[0]["HR"]) == 3
+
+
+def test_vmd_component_scoring_uses_component_actuals() -> None:
+    """Component scorer should compare component actuals, not reconstructed raw target."""
+    experiment = VMDARDLFFNNExperiment()
+    prediction = pd.DataFrame(
+        {
+            "date": pd.date_range("2021-01-01", periods=3, freq="MS"),
+            "split": ["validation"] * 3,
+            "component": ["VMD1"] * 3,
+            "actual_component": [1.0, 2.0, 3.0],
+            "predicted_component": [1.0, 2.0, 3.0],
+        }
+    )
+    actual_raw = pd.DataFrame(
+        {"Export_US": [10.0, 20.0, 30.0]},
+        index=prediction["date"],
+    )
+    metrics = experiment._score_component_prediction(prediction, actual_raw)
+    assert metrics["RMSE"] == 0.0
+    assert metrics["MAE"] == 0.0
 
 
 def test_staged_ardl_lag_specs_respect_budget() -> None:

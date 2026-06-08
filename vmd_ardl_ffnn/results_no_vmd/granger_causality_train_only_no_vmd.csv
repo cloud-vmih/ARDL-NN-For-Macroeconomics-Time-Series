@@ -1,9 +1,0 @@
-cause,effect,lag,F_stat,pvalue,error
-broad_money,cpi_mom_inflation,2,1.5997398863021177,0.2040597800468404,
-ppi_qoq,cpi_mom_inflation,2,,,The x values include a column with constant values and so the test statistic cannot be computed.
-wti,cpi_mom_inflation,2,1.2717392796902407,0.28219509479077753,
-gold,cpi_mom_inflation,2,1.3871094789845606,0.251758948931446,
-policy_rate,cpi_mom_inflation,2,4.3191939721345936,0.014342972026316066,
-VNINDEX,cpi_mom_inflation,2,0.2554385309283477,0.7747836186786963,
-NIKKEI225,cpi_mom_inflation,2,0.053372101424224744,0.9480382491704479,
-USDVND,cpi_mom_inflation,2,0.22532050048341998,0.7984262427874008,

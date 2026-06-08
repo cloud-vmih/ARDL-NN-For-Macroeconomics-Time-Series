@@ -37,8 +37,15 @@ outputs/
 figures/
 results_both_cpi/
 results_both/
+results_no_vmd/
+results_summarize/
+results_test/
 
 # Old files
 experiment_fixed_1.py
 experiment_fixed_2.py
 experiment_fixed_3.py
+
+# AI 
+.agents/
+.codex/

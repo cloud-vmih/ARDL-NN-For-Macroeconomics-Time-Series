@@ -1,9 +1,6 @@
-cause,effect,lag,F_stat,pvalue,error
-broad_money,cpi_mom_inflation,2,1.5997398863021177,0.2040597800468404,
-ppi_qoq,cpi_mom_inflation,2,,,The x values include a column with constant values and so the test statistic cannot be computed.
-wti,cpi_mom_inflation,2,1.2717392796902407,0.28219509479077753,
-gold,cpi_mom_inflation,2,1.3871094789845606,0.251758948931446,
-policy_rate,cpi_mom_inflation,2,4.3191939721345936,0.014342972026316066,
-VNINDEX,cpi_mom_inflation,2,0.2554385309283477,0.7747836186786963,
-NIKKEI225,cpi_mom_inflation,2,0.053372101424224744,0.9480382491704479,
-USDVND,cpi_mom_inflation,2,0.22532050048341998,0.7984262427874008,
+cause,effect,lag,F_stat,pvalue
+US_Retail,Export_US,2,3.4454536292816313,0.03452441972593123
+PCE,Export_US,2,1.923010755639638,0.14987559480546098
+US_Sentiment,Export_US,2,1.512367622428033,0.223843207810876
+Import_CN,Export_US,2,0.7630830950260636,0.4680897538160544
+USD_VND,Export_US,2,0.07966761752233789,0.9234636163929012

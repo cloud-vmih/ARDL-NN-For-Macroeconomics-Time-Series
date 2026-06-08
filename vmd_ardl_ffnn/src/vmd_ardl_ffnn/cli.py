@@ -46,7 +46,45 @@ def main() -> None:
     parser.add_argument("--target-lag-acf-pacf-top-n", type=int, default=3)
     parser.add_argument("--target-lag-acf-pacf-max-lags-per-set", type=int, default=3)
     parser.add_argument("--no-force-target-lag-1", action="store_true")
-    parser.add_argument("--hr", type=int, nargs="+", default=[1, 4, 8, 12, 16])
+    parser.add_argument(
+        "--hidden-layers",
+        type=int,
+        nargs="+",
+        default=[1, 2, 3],
+        help="Hidden layer counts to search when using n_features-based FFNN widths.",
+    )
+    parser.add_argument(
+        "--hidden-width-multipliers",
+        type=float,
+        nargs="+",
+        default=[1.0, 0.5, 0.25],
+        help="Width multipliers applied to n_features for each hidden layer.",
+    )
+    parser.add_argument(
+        "--hr",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Legacy absolute one-hidden-layer neuron grid. Overrides n_features-based widths when set.",
+    )
+    parser.add_argument(
+        "--activation",
+        choices=["relu", "tanh"],
+        default="tanh",
+        help="Activation used for fast screening and as the fallback FFNN activation.",
+    )
+    parser.add_argument(
+        "--activation-grid",
+        choices=["relu", "tanh"],
+        nargs="+",
+        default=None,
+        help="Activation functions to tune in the FFNN hyperparameter search.",
+    )
+    parser.add_argument(
+        "--no-activation-tuning",
+        action="store_true",
+        help="Disable activation tuning and use only --activation in the FFNN search.",
+    )
     parser.add_argument("--max-iter", type=int, default=500)
     parser.add_argument(
         "--search-strategy",
@@ -64,7 +102,9 @@ def main() -> None:
     parser.add_argument("--top-k-lag-specs", type=int, default=4)
     parser.add_argument("--top-component-candidates", type=int, default=3)
     parser.add_argument("--fast-max-iter", type=int, default=150)
-    parser.add_argument("--fast-hr", type=int, default=8)
+    parser.add_argument("--fast-hr", type=int, default=None)
+    parser.add_argument("--fast-hidden-layers", type=int, default=1)
+    parser.add_argument("--fast-hidden-width-multiplier", type=float, default=1.0)
     parser.add_argument("--fast-alpha", type=float, default=1e-3)
     parser.add_argument("--no-stationarity", action="store_true")
     parser.add_argument(
@@ -74,6 +114,14 @@ def main() -> None:
         help="Forecasting pipeline to run.",
     )
     args = parser.parse_args()
+    default_ffnn = FFNNConfig()
+    activation = args.activation or default_ffnn.activation
+    if args.no_activation_tuning and args.activation_grid is not None:
+        parser.error("--no-activation-tuning cannot be used together with --activation-grid.")
+    if args.no_activation_tuning:
+        activation_grid = (activation,)
+    else:
+        activation_grid = tuple(args.activation_grid) if args.activation_grid is not None else default_ffnn.activation_grid
 
     config = ExperimentConfig(
         data=DataConfig(
@@ -100,11 +148,17 @@ def main() -> None:
             max_lag_specs=args.max_lag_specs,
         ),
         ffnn=replace(
-            FFNNConfig(),
-            hidden_units_candidates=tuple(args.hr),
+            default_ffnn,
+            hidden_layer_candidates=tuple(args.hidden_layers),
+            hidden_width_multipliers=tuple(args.hidden_width_multipliers),
+            hidden_units_candidates=tuple(args.hr) if args.hr is not None else tuple(),
+            activation=activation,
+            activation_grid=activation_grid,
             max_iter=args.max_iter,
             search_strategy=args.search_strategy.replace("-", "_"),
             fast_hidden_units=args.fast_hr,
+            fast_hidden_layers=args.fast_hidden_layers,
+            fast_hidden_width_multiplier=args.fast_hidden_width_multiplier,
             fast_alpha=args.fast_alpha,
             fast_max_iter=args.fast_max_iter,
             top_k_lag_specs=args.top_k_lag_specs,
