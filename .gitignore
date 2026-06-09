@@ -49,3 +49,4 @@ experiment_fixed_3.py
 # AI 
 .agents/
 .codex/
+.ipynb_checkpoints
