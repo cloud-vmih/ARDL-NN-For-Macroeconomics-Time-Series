@@ -28,7 +28,10 @@ python -m vmd_ardl_ffnn.cli \
 | --- | --- | --- | --- |
 | `--pipeline` | `vmd` | `vmd`, `no-vmd`, `both` | Chọn pipeline chạy. `vmd` chạy VMD + ARDL + FFNN; `no-vmd` chạy baseline không VMD; `both` chạy cả hai và xuất bảng so sánh. |
 | `--vmd-modes` | `3` | integer | Số VMD modes, chưa tính residual `RES`. |
+| `--vmd-backend` | `self-contained` | `self-contained`, `library` | Chọn implementation VMD. `self-contained` dùng code nội bộ; `library` gọi thư viện VMD tùy chọn như `vmdpy`/`sktime.libs.vmdpy`. |
 | `--no-stationarity` | `False` | flag | Nếu bật, bỏ qua ADF/KPSS và không tự chọn `level`/`diff1`. |
+
+Khi dùng `--vmd-backend library`, cài dependency tùy chọn trước bằng `pip install .[vmd]` trong thư mục `vmd_ardl_ffnn`, hoặc cài trực tiếp `pip install vmdpy`.
 
 ## ARDL Target Lag
 

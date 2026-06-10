@@ -20,6 +20,7 @@ class VMDConfig:
     """Cấu hình thuật toán phân rã VMD."""
 
     modes: int = 3
+    backend: str = "self_contained"
     alpha: float = 2000.0
     tau: float = 0.0
     dc: bool = False

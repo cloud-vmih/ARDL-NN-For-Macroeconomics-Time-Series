@@ -18,6 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
+vmd = ["vmdpy>=0.2"]
 
 [project.scripts]
 vmd-ardl-ffnn-run = "vmd_ardl_ffnn.cli:main"

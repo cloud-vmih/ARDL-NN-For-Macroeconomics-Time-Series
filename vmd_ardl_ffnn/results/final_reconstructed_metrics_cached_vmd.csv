@@ -69,3 +69,11 @@ df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,reconstructed_transformed,0.1
 df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,level,1136059.2452569492,851987.4942859223,8.115838281996364,46.875
 df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,reconstructed_transformed,0.11892894753124186,0.08022530263145497,142.63397115243555,68.75
 df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,level,954015.1857300693,654342.5331130995,8.497430735137092,65.625
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,reconstructed_transformed,0.12462760498670991,0.09291884093300559,174.94878038092588,56.25
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,level,1366698.2257800165,997281.9225961067,9.327505483541417,43.75
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,reconstructed_transformed,0.14222210507092792,0.10531012736002014,242.9809080627743,50.0
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,level,1160376.0864219707,869547.6728642085,11.042200460589774,40.625
+df_final,VMD_ARDL_FFNN,True,cached_vmd,6,tanh,test,reconstructed_transformed,0.15437622367445406,0.11833430894132728,291.1104031578925,34.375
+df_final,VMD_ARDL_FFNN,True,cached_vmd,6,tanh,test,level,1673389.5844496207,1273099.82015764,11.710321631317843,37.5
+df_final,VMD_ARDL_FFNN,True,cached_vmd,6,tanh,validation,reconstructed_transformed,0.12728693392629897,0.0978623652214809,129.18446671297028,62.5
+df_final,VMD_ARDL_FFNN,True,cached_vmd,6,tanh,validation,level,1029551.4892720695,807247.0142846954,10.086478548949184,43.75

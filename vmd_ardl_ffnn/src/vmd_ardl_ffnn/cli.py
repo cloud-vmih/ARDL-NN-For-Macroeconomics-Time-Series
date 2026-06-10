@@ -26,6 +26,12 @@ def main() -> None:
     parser.add_argument("--freq", default="MS")
     parser.add_argument("--no-log", action="store_true")
     parser.add_argument("--vmd-modes", type=int, default=3)
+    parser.add_argument(
+        "--vmd-backend",
+        choices=["self-contained", "library"],
+        default="self-contained",
+        help="Use the package's self-contained VMD or an optional third-party VMD library.",
+    )
     parser.add_argument("--max-target-lag", type=int, default=12)
     parser.add_argument("--max-exog-lag", type=int, default=6)
     parser.add_argument("--top-n", type=int, default=3)
@@ -131,7 +137,7 @@ def main() -> None:
             freq=args.freq if args.freq.lower() != "none" else None,
             log_transform=not args.no_log,
         ),
-        vmd=replace(VMDConfig(), modes=args.vmd_modes),
+        vmd=replace(VMDConfig(), modes=args.vmd_modes, backend=args.vmd_backend.replace("-", "_")),
         ardl=replace(
             ARDLSelectionConfig(),
             max_target_lag=args.max_target_lag,

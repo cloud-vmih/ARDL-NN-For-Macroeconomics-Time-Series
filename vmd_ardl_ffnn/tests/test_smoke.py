@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from vmd_ardl_ffnn.config import ARDLSelectionConfig, DataConfig, ExperimentConfig, FFNNConfig, VMDConfig
+from vmd_ardl_ffnn import decomposition
 from vmd_ardl_ffnn.decomposition import VariationalModeDecomposer
 from vmd_ardl_ffnn.experiment import VMDARDLFFNNExperiment
 from vmd_ardl_ffnn.lag_selection import ARDLOrderSelector
@@ -25,6 +26,26 @@ def test_vmd_decomposition_reconstructs_shape() -> None:
     """Kiểm tra VMD trả đủ component cùng độ dài chuỗi."""
     series = pd.Series(np.sin(np.linspace(0, 10, 80)) + 0.1 * np.arange(80), name="x")
     levels = VariationalModeDecomposer(VMDConfig(modes=2, max_iterations=50)).decompose(series)
+    assert set(levels) == {"VMD1", "VMD2", "RES"}
+    assert all(len(component) == len(series) for component in levels.values())
+
+
+def test_vmd_library_backend_uses_optional_vmd_function(monkeypatch) -> None:
+    """Library backend should call the optional VMD function and keep component shape."""
+
+    def fake_vmd(signal, alpha, tau, modes, dc, init, tolerance):
+        assert np.isclose(np.mean(signal), 0.0)
+        assert alpha == 123.0
+        assert tau == 0.0
+        assert modes == 2
+        assert dc == 0
+        assert init == 1
+        assert tolerance == 1e-7
+        return np.vstack([signal * 0.25, signal * 0.75]), np.empty((0,)), np.empty((0,))
+
+    monkeypatch.setattr(decomposition, "_load_library_vmd", lambda: fake_vmd)
+    series = pd.Series(np.linspace(1.0, 153.0, 153), name="x")
+    levels = VariationalModeDecomposer(VMDConfig(modes=2, backend="library", alpha=123.0)).decompose(series)
     assert set(levels) == {"VMD1", "VMD2", "RES"}
     assert all(len(component) == len(series) for component in levels.values())
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib import import_module
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -8,9 +10,24 @@ import pandas as pd
 from .config import VMDConfig
 
 
+def _load_library_vmd() -> Callable[..., tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Load a VMD implementation from an optional third-party package."""
+    for module_name in ("vmdpy", "sktime.libs.vmdpy"):
+        try:
+            module = import_module(module_name)
+        except ImportError:
+            continue
+        if hasattr(module, "VMD"):
+            return module.VMD
+    raise ImportError(
+        "VMDConfig(backend='library') requires the optional VMD library. "
+        "Install it with `pip install vmdpy` or `pip install .[vmd]`."
+    )
+
+
 @dataclass
 class VariationalModeDecomposer:
-    """Small self-contained VMD implementation returning K additive modes."""
+    """VMD decomposer returning K additive modes."""
 
     config: VMDConfig = VMDConfig()
 
@@ -22,6 +39,47 @@ class VariationalModeDecomposer:
         if len(x) < 4:
             raise ValueError("VMD requires at least 4 observations.")
 
+        backend = self.config.backend.replace("-", "_").lower()
+        if backend == "library":
+            return self._decompose_array_with_library(x)
+        if backend != "self_contained":
+            raise ValueError("VMD backend must be either 'self_contained' or 'library'.")
+        return self._decompose_array_self_contained(x)
+
+    def _decompose_array_with_library(self, signal: np.ndarray) -> np.ndarray:
+        """Phân rã bằng thư viện VMD/vmdpy thay cho implementation tự build."""
+        vmd = _load_library_vmd()
+        x = np.asarray(signal, dtype=float)
+        original_len = len(x)
+        if original_len % 2:
+            x = np.r_[x, x[-1]]
+
+        centered = x - np.mean(x)
+        modes, _, _ = vmd(
+            centered,
+            float(self.config.alpha),
+            float(self.config.tau),
+            int(self.config.modes),
+            int(self.config.dc),
+            int(self.config.init),
+            float(self.config.tolerance),
+        )
+        modes = np.asarray(modes, dtype=float)
+        if modes.ndim != 2 or modes.shape[0] != int(self.config.modes):
+            raise ValueError(
+                "Library VMD returned an unexpected mode array shape: "
+                f"{modes.shape}, expected ({self.config.modes}, n_observations)."
+            )
+        if modes.shape[1] < original_len:
+            raise ValueError(
+                "Library VMD returned fewer observations than expected: "
+                f"{modes.shape[1]}, expected at least {original_len}."
+            )
+        return modes[:, :original_len]
+
+    def _decompose_array_self_contained(self, signal: np.ndarray) -> np.ndarray:
+        """Phân rã bằng implementation VMD self-contained của package."""
+        x = np.asarray(signal, dtype=float)
         original_len = len(x)
         if original_len % 2:
             x = np.r_[x, x[-1]]
