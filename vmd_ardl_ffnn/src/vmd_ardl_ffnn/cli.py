@@ -13,6 +13,7 @@ from .config import (
     VMDConfig,
 )
 from .experiment import VMDARDLFFNNExperiment
+from .models.varnn import VARNNConfig, run_varnn_pipeline
 
 
 def main() -> None:
@@ -109,10 +110,24 @@ def main() -> None:
     parser.add_argument("--no-stationarity", action="store_true")
     parser.add_argument(
         "--pipeline",
-        choices=["vmd", "no-vmd", "both"],
+        choices=["vmd", "no-vmd", "both", "varnn"],
         default="vmd",
         help="Forecasting pipeline to run.",
     )
+    parser.add_argument("--varnn-lag-criterion", choices=["aic", "bic", "hqic", "fpe"], default="aic")
+    parser.add_argument("--varnn-maxlags", type=int, default=None)
+    parser.add_argument("--varnn-min-lag", type=int, default=1)
+    parser.add_argument(
+        "--varnn-fixed-lag",
+        type=int,
+        default=2,
+        help="Fixed VAR lag used by the predict-varnn notebook. Use 0 to select by criterion.",
+    )
+    parser.add_argument("--varnn-hidden-units", type=int, default=32)
+    parser.add_argument("--varnn-epochs", type=int, default=100)
+    parser.add_argument("--varnn-batch-size", type=int, default=32)
+    parser.add_argument("--varnn-patience", type=int, default=12)
+    parser.add_argument("--varnn-seed", type=int, default=7)
     args = parser.parse_args()
     default_ffnn = FFNNConfig()
     activation = args.activation or default_ffnn.activation
@@ -168,7 +183,28 @@ def main() -> None:
         output_dir=Path(args.out),
     )
     experiment = VMDARDLFFNNExperiment(config)
-    if args.pipeline == "no-vmd":
+    if args.pipeline == "varnn":
+        try:
+            result = run_varnn_pipeline(
+                args.data,
+                config,
+                VARNNConfig(
+                    lag_criterion=args.varnn_lag_criterion,
+                    maxlags=args.varnn_maxlags,
+                    min_lag=args.varnn_min_lag,
+                    fixed_lag=None if args.varnn_fixed_lag == 0 else args.varnn_fixed_lag,
+                    hidden_units=args.varnn_hidden_units,
+                    epochs=args.varnn_epochs,
+                    batch_size=args.varnn_batch_size,
+                    patience=args.varnn_patience,
+                    seed=args.varnn_seed,
+                ),
+            )
+        except ImportError as exc:
+            parser.error(str(exc))
+        print("VARNN metrics:")
+        print(result["metrics"].to_string(index=False))
+    elif args.pipeline == "no-vmd":
         result = experiment.run_without_vmd(args.data)
         print("Best model rows:")
         print(result["best_component_models"].to_string(index=False))
