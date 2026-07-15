@@ -1,0 +1,152 @@
+{
+  "run_id": "20260715T110737648486Z_eebe3542",
+  "pipeline": "benchmark",
+  "dataset": "/home/cloud/cloud/DA/Project/df_final.csv",
+  "status": "success",
+  "error": null,
+  "forecast_protocol": "rolling_one_step",
+  "config_hash": "eebe3542",
+  "config": {
+    "data": {
+      "date_col": "TIME_PERIOD",
+      "target": "Export_US",
+      "features": [
+        "PCE",
+        "US_Retail",
+        "USD_VND",
+        "Import_CN"
+      ],
+      "freq": "MS",
+      "log_transform": true,
+      "missing_period_policy": "raise",
+      "missing_value_policy": "raise"
+    },
+    "vmd": {
+      "modes": 3,
+      "backend": "self_contained",
+      "alpha": 2000.0,
+      "tau": 0.0,
+      "dc": false,
+      "init": 1,
+      "tolerance": 1e-07,
+      "max_iterations": 500
+    },
+    "ardl": {
+      "max_target_lag": 12,
+      "max_exog_lag": 6,
+      "top_n": 3,
+      "ic": "aic",
+      "trend": "c",
+      "causal": true,
+      "target_lag_strategy": "ardl_select_order",
+      "fixed_target_lags": [
+        1,
+        12
+      ],
+      "target_lag_top_n": 2,
+      "force_target_lag_1": true,
+      "target_lag_preset": "acf_pacf",
+      "target_lag_candidates": [],
+      "target_lag_acf_pacf_top_n": 3,
+      "target_lag_acf_pacf_max_lags_per_set": 3,
+      "lag_spec_strategy": "staged",
+      "max_lag_specs": 16,
+      "selection_failure_policy": "raise",
+      "exog_lag_strategy": "ardl_screen",
+      "fixed_exog_lags": [
+        1
+      ]
+    },
+    "ffnn": {
+      "hidden_layer_candidates": [
+        1,
+        2,
+        3
+      ],
+      "hidden_width_multipliers": [
+        1.0,
+        0.5,
+        0.25
+      ],
+      "hidden_units_candidates": [],
+      "alpha_grid": [
+        0.0001,
+        0.001,
+        0.01,
+        0.1
+      ],
+      "seed_grid": [
+        7,
+        42,
+        123
+      ],
+      "activation": "tanh",
+      "activation_grid": [
+        "tanh"
+      ],
+      "learning_rate_init": 0.001,
+      "learning_rate_grid": [
+        0.01,
+        0.001
+      ],
+      "max_iter": 500,
+      "min_train": 30,
+      "min_val": 8,
+      "min_test": 8,
+      "search_strategy": "staged_halving",
+      "fast_hidden_units": null,
+      "fast_hidden_layers": 1,
+      "fast_hidden_width_multiplier": 1.0,
+      "fast_alpha": 0.001,
+      "fast_max_iter": 150,
+      "top_k_lag_specs": 4,
+      "top_component_candidates": 3,
+      "lag_screen_folds": 3,
+      "lag_screen_validation_size": 12,
+      "lag_screen_learning_rate_grid": [
+        0.01,
+        0.001
+      ],
+      "lag_screen_selection_rule": "one_standard_error",
+      "final_selection_scale": "level"
+    },
+    "diagnostics": {
+      "lags": 12,
+      "granger_maxlag": 2,
+      "alpha": 0.05
+    },
+    "stationarity": {
+      "enabled": true,
+      "alpha": 0.05,
+      "min_obs": 12
+    },
+    "train_ratio": 0.7,
+    "val_ratio": 0.15,
+    "output_dir": "/home/cloud/cloud/DA/Project/results/benchmark/20260715T110737648486Z_eebe3542",
+    "forecast_protocol": "rolling_one_step"
+  },
+  "metadata": {
+    "paper_seeds": [
+      7,
+      42,
+      123,
+      2024,
+      2025
+    ],
+    "include_varnn": true
+  },
+  "runtime": {
+    "python": "3.11.15",
+    "platform": "Linux-7.0.13-100.fc43.x86_64-x86_64-with-glibc2.42",
+    "dependencies": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.3",
+      "statsmodels": "0.14.6",
+      "scikit-learn": "1.9.0",
+      "matplotlib": "3.11.0",
+      "tensorflow": "2.21.0",
+      "vmdpy": null
+    }
+  },
+  "written_at_utc": "2026-07-15T12:52:21.267619+00:00"
+}

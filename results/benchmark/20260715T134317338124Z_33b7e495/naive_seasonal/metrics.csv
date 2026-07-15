@@ -1,0 +1,3 @@
+model,pipeline,target,split,scale,forecast_protocol,RMSE,MAE,MAPE,Directional_Accuracy
+Naive_Seasonal12,Naive_Seasonal12,Export_US,validation,level,rolling_one_step,1944328.5964850003,1722013.6209090892,21.090348943278798,53.125
+Naive_Seasonal12,Naive_Seasonal12,Export_US,test,level,rolling_one_step,2383548.3806577893,2101623.5893939403,18.09344341748448,53.125

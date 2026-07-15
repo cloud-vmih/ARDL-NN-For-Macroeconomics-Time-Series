@@ -1,0 +1,53 @@
+feature,target_lag,target_lags,target_lag_strategy,selected_ic,selected_for_target_lags,target_lag_selection_fallback,error,exog_lag,AIC,BIC,selected_score,nobs,hold_back,rank_within_feature,selected_for_ffnn_grid,combo_rank,combo_score_sum,combo_source,lag_spec_strategy,exog_lags,lag_spec,component
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,1.0,-128.08851383337267,-83.96387749423312,-128.08851383337267,140.0,12.0,1.0,True,,,,,,,raw_no_vmd
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,2.0,-126.14506790589289,-79.07878914414403,-126.14506790589289,140.0,12.0,2.0,True,,,,,,,raw_no_vmd
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,3.0,-124.19790743321587,-74.1899862488577,-124.19790743321587,140.0,12.0,3.0,True,,,,,,,raw_no_vmd
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,4.0,-122.20966378192693,-69.26010017495946,-122.20966378192693,140.0,12.0,,False,,,,,,,raw_no_vmd
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,5.0,-120.84531752981496,-64.95411150023818,-120.84531752981496,140.0,12.0,,False,,,,,,,raw_no_vmd
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,6.0,-118.89901880502836,-60.06617035284228,-118.89901880502836,140.0,12.0,,False,,,,,,,raw_no_vmd
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,1.0,-126.36450010095112,-82.23986376181156,-126.36450010095112,140.0,12.0,1.0,True,,,,,,,raw_no_vmd
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,2.0,-125.43357320094182,-78.36729443919296,-125.43357320094182,140.0,12.0,2.0,True,,,,,,,raw_no_vmd
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,3.0,-124.2276750306053,-74.21975384624713,-124.2276750306053,140.0,12.0,3.0,True,,,,,,,raw_no_vmd
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,4.0,-123.50046654974128,-70.5509029427738,-123.50046654974128,140.0,12.0,,False,,,,,,,raw_no_vmd
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,5.0,-121.77286480904274,-65.88165877946597,-121.77286480904274,140.0,12.0,,False,,,,,,,raw_no_vmd
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,6.0,-120.0280163229074,-61.19516787072132,-120.0280163229074,140.0,12.0,,False,,,,,,,raw_no_vmd
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,1.0,-123.18921640524559,-79.06458006610603,-123.18921640524559,140.0,12.0,1.0,True,,,,,,,raw_no_vmd
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,2.0,-121.19918536092104,-74.13290659917217,-121.19918536092104,140.0,12.0,2.0,True,,,,,,,raw_no_vmd
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,3.0,-119.97356770833579,-69.96564652397763,-119.97356770833579,140.0,12.0,3.0,True,,,,,,,raw_no_vmd
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,4.0,-118.4865771251967,-65.53701351822923,-118.4865771251967,140.0,12.0,,False,,,,,,,raw_no_vmd
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,5.0,-116.5531612397049,-60.66195521012813,-116.5531612397049,140.0,12.0,,False,,,,,,,raw_no_vmd
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,6.0,-114.87581797337418,-56.0429695211881,-114.87581797337418,140.0,12.0,,False,,,,,,,raw_no_vmd
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,1.0,-123.51243820872335,-79.3878018695838,-123.51243820872335,140.0,12.0,1.0,True,,,,,,,raw_no_vmd
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,2.0,-122.96747574907886,-75.90119698733,-122.96747574907886,140.0,12.0,2.0,True,,,,,,,raw_no_vmd
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,3.0,-121.04847069325612,-71.04054950889795,-121.04847069325612,140.0,12.0,3.0,True,,,,,,,raw_no_vmd
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,4.0,-119.17239019450605,-66.22282658753858,-119.17239019450605,140.0,12.0,,False,,,,,,,raw_no_vmd
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,5.0,-118.72007350589527,-62.82886747631849,-118.72007350589527,140.0,12.0,,False,,,,,,,raw_no_vmd
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,6.0,-117.03526469867606,-58.202416246489975,-117.03526469867606,140.0,12.0,,False,,,,,,,raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,1.0,-501.15466854829276,baseline_rank1,staged,"{'PCE': (1,), 'US_Retail': (1,), 'USD_VND': (1,), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1], USD_VND:[1], Import_CN:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,2.0,-500.60970608864824,one_feature_perturbation,staged,"{'PCE': (1,), 'US_Retail': (1,), 'USD_VND': (1,), 'Import_CN': (1, 2)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1], USD_VND:[1], Import_CN:[1, 2]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,3.0,-500.2237416482834,one_feature_perturbation,staged,"{'PCE': (1,), 'US_Retail': (1, 2), 'USD_VND': (1,), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1, 2], USD_VND:[1], Import_CN:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,4.0,-499.67877918863894,best_combo_score,staged,"{'PCE': (1,), 'US_Retail': (1, 2), 'USD_VND': (1,), 'Import_CN': (1, 2)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1, 2], USD_VND:[1], Import_CN:[1, 2]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,5.0,-499.2112226208129,one_feature_perturbation,staged,"{'PCE': (1, 2), 'US_Retail': (1,), 'USD_VND': (1,), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1, 2], US_Retail:[1], USD_VND:[1], Import_CN:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,6.0,-499.16463750396815,one_feature_perturbation,staged,"{'PCE': (1,), 'US_Retail': (1,), 'USD_VND': (1, 2), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1], USD_VND:[1, 2], Import_CN:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,7.0,-499.01784347794694,one_feature_perturbation,staged,"{'PCE': (1,), 'US_Retail': (1, 2, 3), 'USD_VND': (1,), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1, 2, 3], USD_VND:[1], Import_CN:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,8.0,-498.6907010328255,one_feature_perturbation,staged,"{'PCE': (1,), 'US_Retail': (1,), 'USD_VND': (1,), 'Import_CN': (1, 2, 3)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1], USD_VND:[1], Import_CN:[1, 2, 3]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,9.0,-498.66626016116845,best_combo_score,staged,"{'PCE': (1, 2), 'US_Retail': (1,), 'USD_VND': (1,), 'Import_CN': (1, 2)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1, 2], US_Retail:[1], USD_VND:[1], Import_CN:[1, 2]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,10.0,-498.6196750443237,best_combo_score,staged,"{'PCE': (1,), 'US_Retail': (1,), 'USD_VND': (1, 2), 'Import_CN': (1, 2)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1], USD_VND:[1, 2], Import_CN:[1, 2]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,11.0,-498.4728810183024,best_combo_score,staged,"{'PCE': (1,), 'US_Retail': (1, 2, 3), 'USD_VND': (1,), 'Import_CN': (1, 2)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1, 2, 3], USD_VND:[1], Import_CN:[1, 2]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,12.0,-498.2802957208037,best_combo_score,staged,"{'PCE': (1, 2), 'US_Retail': (1, 2), 'USD_VND': (1,), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1, 2], US_Retail:[1, 2], USD_VND:[1], Import_CN:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,13.0,-498.2337106039589,best_combo_score,staged,"{'PCE': (1,), 'US_Retail': (1, 2), 'USD_VND': (1, 2), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1, 2], USD_VND:[1, 2], Import_CN:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,14.0,-497.9390198513829,one_feature_perturbation,staged,"{'PCE': (1,), 'US_Retail': (1,), 'USD_VND': (1, 2, 3), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1], USD_VND:[1, 2, 3], Import_CN:[1]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,15.0,-497.75977413281623,best_combo_score,staged,"{'PCE': (1,), 'US_Retail': (1, 2), 'USD_VND': (1,), 'Import_CN': (1, 2, 3)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[1, 2], USD_VND:[1], Import_CN:[1, 2, 3]",raw_no_vmd
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,,16.0,-497.26406214813596,one_feature_perturbation,staged,"{'PCE': (1, 2, 3), 'US_Retail': (1,), 'USD_VND': (1,), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1, 2, 3], US_Retail:[1], USD_VND:[1], Import_CN:[1]",raw_no_vmd

@@ -4,13 +4,17 @@ import numpy as np
 
 
 def evaluate_forecast(y_true, y_pred) -> dict[str, float]:
-    """Tính các chỉ số lỗi và độ chính xác hướng dự báo."""
+    """Tính lỗi và directional accuracy cho rolling one-step forecast.
+
+    Direction tại ``t`` được đo từ actual ``t-1`` tới actual/prediction ``t``.
+    Điểm đầu tiên không có previous actual trong mảng nên không tham gia metric.
+    """
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
     denom = np.where(np.abs(y_true) < 1e-12, np.nan, y_true)
     if len(y_true) > 1:
         actual_direction = np.sign(np.diff(y_true))
-        predicted_direction = np.sign(np.diff(y_pred))
+        predicted_direction = np.sign(y_pred[1:] - y_true[:-1])
         directional_accuracy = float((actual_direction == predicted_direction).mean() * 100.0)
     else:
         directional_accuracy = float("nan")

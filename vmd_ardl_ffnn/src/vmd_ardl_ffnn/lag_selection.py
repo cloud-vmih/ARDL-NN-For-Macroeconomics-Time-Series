@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from itertools import product
+from itertools import combinations, product
 import logging
 
 import numpy as np
@@ -188,6 +188,7 @@ class ARDLOrderSelector:
             lags=[int(target_lag)],
             trend=self.config.trend,
             missing="raise",
+            hold_back=int(self.config.max_target_lag),
         ).fit()
         ic_name = self.config.ic.lower()
         return {
@@ -201,17 +202,83 @@ class ARDLOrderSelector:
             "target_lag_score": float(getattr(model, ic_name)),
             "selected_score": float(getattr(model, ic_name)),
             "nobs": int(model.nobs),
+            "hold_back": int(self.config.max_target_lag),
             "selected_for_target_lags": False,
             "target_lag_selection_fallback": False,
         }
 
-    def _select_target_lags(self, clean: pd.DataFrame, target: str) -> tuple[tuple[int, ...], list[dict[str, object]]]:
+    def _select_target_lags(
+        self,
+        clean: pd.DataFrame,
+        target: str,
+        features: list[str] | None = None,
+    ) -> tuple[tuple[int, ...], list[dict[str, object]]]:
         """Select target lags once before exogenous lag and FFNN search."""
         strategy = self.config.target_lag_strategy.lower().replace("-", "_")
-        if strategy not in {"fixed", "ic_topk", "validation_screen"}:
-            raise ValueError("ARDLSelectionConfig.target_lag_strategy must be 'fixed', 'ic_topk', or 'validation_screen'.")
+        if strategy not in {"fixed", "ic_topk", "validation_screen", "joint_validation_screen", "ardl_select_order", "ardl_select_order_joint"}:
+            raise ValueError(
+                "ARDLSelectionConfig.target_lag_strategy must be 'fixed', 'ic_topk', "
+                "'validation_screen', 'joint_validation_screen', 'ardl_select_order', or 'ardl_select_order_joint'."
+            )
+        if strategy == "joint_validation_screen":
+            raise ValueError(
+                "joint_validation_screen must be run through VMDARDLFFNNExperiment "
+                "because target and exogenous lag candidates are validated together by FFNN."
+            )
 
         fallback_lags = self._fallback_target_lags()
+        if strategy == "ardl_select_order":
+            from statsmodels.tsa.ardl import ardl_select_order
+            if not features:
+                raise ValueError("features must be provided when target_lag_strategy is 'ardl_select_order'.")
+            fallback_error: str | None = None
+            try:
+                sel_res = ardl_select_order(
+                    endog=clean[target],
+                    maxlag=int(self.config.max_target_lag),
+                    exog=clean[features],
+                    maxorder=int(self.config.max_exog_lag),
+                    ic=self.config.ic.lower(),
+                    trend=self.config.trend,
+                    causal=self.config.causal,
+                    hold_back=max(int(self.config.max_target_lag), int(self.config.max_exog_lag)),
+                    missing="raise",
+                )
+                ar_lags = sel_res.ar_lags
+                selected = set(ar_lags) if ar_lags is not None else set()
+
+            except Exception as exc:
+                if self.config.selection_failure_policy == "raise":
+                    raise RuntimeError("statsmodels ardl_select_order failed") from exc
+                logger.warning(
+                    "statsmodels ardl_select_order failed: %s. Falling back to default fixed lags.",
+                    exc
+                )
+                selected = set(fallback_lags)
+                fallback_error = str(exc)
+
+            if self.config.force_target_lag_1:
+                selected.add(1)
+            selected = {lag for lag in selected if 1 <= lag <= int(self.config.max_target_lag)}
+            target_lags = tuple(sorted(selected))
+            if not target_lags:
+                target_lags = fallback_lags
+
+            rows = []
+            for lag in range(1, int(self.config.max_target_lag) + 1):
+                rows.append(
+                    {
+                        "feature": "__target_lag__",
+                        "target_lag": int(lag),
+                        "target_lags": target_lags,
+                        "target_lag_strategy": strategy,
+                        "selected_ic": self.config.ic.lower(),
+                        "selected_for_target_lags": int(lag) in selected,
+                        "target_lag_selection_fallback": fallback_error is not None,
+                        "error": fallback_error,
+                    }
+                )
+            return target_lags, rows
         if strategy == "fixed":
             return fallback_lags, [
                 {
@@ -302,9 +369,10 @@ class ARDLOrderSelector:
             clean[target],
             lags=list(target_lags),
             exog=clean[[feature]],
-            order={feature: [int(exog_lag)]},
+            order={feature: list(range(1, int(exog_lag) + 1))},
             trend=self.config.trend,
             missing="raise",
+            hold_back=max(max(target_lags), int(self.config.max_exog_lag)),
         ).fit()
         ic_name = self.config.ic.lower()
         if ic_name not in {"aic", "bic"}:
@@ -319,6 +387,7 @@ class ARDLOrderSelector:
             "selected_ic": ic_name,
             "selected_score": float(getattr(model, ic_name)),
             "nobs": int(model.nobs),
+            "hold_back": max(max(target_lags), int(self.config.max_exog_lag)),
         }
 
     def _candidate_lag_combos(
@@ -385,10 +454,101 @@ class ARDLOrderSelector:
 
         clean = data[[target, *features]].dropna()
         rows: list[dict[str, object]] = []
-        top_lags_by_feature: dict[str, list[int]] = {}
-        scores_by_feature_lag: dict[tuple[str, int], float] = {}
+
+        strategy = self.config.target_lag_strategy.lower().replace("-", "_")
+        if strategy == "ardl_select_order_joint" and target_lags_override is None:
+            # Joint selection of both target and exogenous lags via statsmodels ardl_select_order
+            from statsmodels.tsa.ardl import ardl_select_order
+            if not features:
+                raise ValueError("features must be provided when target_lag_strategy is 'ardl_select_order_joint'.")
+            fallback_error: str | None = None
+            try:
+                sel_res = ardl_select_order(
+                    endog=clean[target],
+                    maxlag=int(self.config.max_target_lag),
+                    exog=clean[features],
+                    maxorder=int(self.config.max_exog_lag),
+                    ic=self.config.ic.lower(),
+                    trend=self.config.trend,
+                    causal=self.config.causal,
+                    hold_back=max(int(self.config.max_target_lag), int(self.config.max_exog_lag)),
+                    missing="raise",
+                )
+                ar_lags = sel_res.ar_lags
+                selected_target = set(ar_lags) if ar_lags is not None else set()
+                selected_target = {lag for lag in selected_target if 1 <= lag <= int(self.config.max_target_lag)}
+                target_lags = tuple(sorted(selected_target))
+
+                exog_lags = {}
+                for feature in features:
+                    lags = (sel_res.dl_lags or {}).get(feature, [])
+                    valid_lags = tuple(sorted({int(l) for l in lags if 0 <= l <= int(self.config.max_exog_lag)}))
+                    exog_lags[feature] = valid_lags
+            except Exception as exc:
+                if self.config.selection_failure_policy == "raise":
+                    raise RuntimeError("statsmodels ardl_select_order failed in joint selection") from exc
+                logger.warning(
+                    "statsmodels ardl_select_order failed in joint selection: %s. Falling back to default fixed lags.",
+                    exc
+                )
+                target_lags = self._fallback_target_lags()
+                exog_lags = {feature: (1,) for feature in features}
+                fallback_error = str(exc)
+
+            spec = LagSpec(target_lags=target_lags, exog_lags=exog_lags)
+
+            # 1. Target lags rows
+            for lag in range(1, int(self.config.max_target_lag) + 1):
+                rows.append(
+                    {
+                        "feature": "__target_lag__",
+                        "target_lag": int(lag),
+                        "target_lags": target_lags,
+                        "target_lag_strategy": strategy,
+                        "selected_ic": self.config.ic.lower(),
+                        "selected_for_target_lags": int(lag) in target_lags,
+                        "target_lag_selection_fallback": fallback_error is not None,
+                        "error": fallback_error,
+                    }
+                )
+            # 2. Exogenous lags rows
+            for feature in features:
+                selected_for_feature = exog_lags.get(feature, ())
+                for lag in range(1, int(self.config.max_exog_lag) + 1):
+                    rows.append(
+                        {
+                            "feature": feature,
+                            "exog_lag": int(lag),
+                            "target_lags": target_lags,
+                            "AIC": float("nan"),
+                            "BIC": float("nan"),
+                            "selected_ic": self.config.ic.lower(),
+                            "selected_score": float("nan"),
+                            "nobs": len(clean),
+                            "rank_within_feature": 1 if int(lag) in selected_for_feature else None,
+                            "selected_for_ffnn_grid": int(lag) in selected_for_feature,
+                        }
+                    )
+            # 3. Combo row
+            rows.append(
+                {
+                    "feature": "__ffnn_combo__",
+                    "combo_rank": 1,
+                    "combo_score_sum": 0.0,
+                    "combo_source": "ardl_select_order_joint",
+                    "lag_spec_strategy": self.config.lag_spec_strategy.lower().replace("-", "_"),
+                    "target_lags": spec.target_lags,
+                    "exog_lags": spec.exog_lags,
+                    "lag_spec": spec.label,
+                    "selected_ic": self.config.ic.lower(),
+                }
+            )
+            return pd.DataFrame(rows), [spec]
+
+        top_lags_by_feature = {}
+        scores_by_feature_lag = {}
         if target_lags_override is None:
-            target_lags, target_lag_rows = self._select_target_lags(clean, target)
+            target_lags, target_lag_rows = self._select_target_lags(clean, target, features)
         else:
             target_lags = tuple(sorted({int(lag) for lag in target_lags_override if int(lag) >= 1}))
             if not target_lags:
@@ -406,6 +566,39 @@ class ARDLOrderSelector:
                 for lag in target_lags
             ]
         rows.extend(target_lag_rows)
+
+        if self.config.exog_lag_strategy.replace("-", "_") == "fixed":
+            fixed_lags = tuple(sorted(set(int(lag) for lag in self.config.fixed_exog_lags)))
+            exog_lags = {feature: fixed_lags for feature in features}
+            spec = LagSpec(target_lags=target_lags, exog_lags=exog_lags)
+            for feature in features:
+                for lag in fixed_lags:
+                    rows.append(
+                        {
+                            "feature": feature,
+                            "exog_lag": lag,
+                            "target_lags": target_lags,
+                            "selected_ic": None,
+                            "selected_score": float("nan"),
+                            "rank_within_feature": 1,
+                            "selected_for_ffnn_grid": True,
+                            "exog_lag_strategy": "fixed",
+                        }
+                    )
+            rows.append(
+                {
+                    "feature": "__ffnn_combo__",
+                    "combo_rank": 1,
+                    "combo_score_sum": float("nan"),
+                    "combo_source": "fixed_exogenous_lags",
+                    "lag_spec_strategy": "fixed",
+                    "target_lags": spec.target_lags,
+                    "exog_lags": spec.exog_lags,
+                    "lag_spec": spec.label,
+                    "selected_ic": None,
+                }
+            )
+            return pd.DataFrame(rows), [spec]
 
         if len(clean) <= max(target_lags) + 5:
             raise ValueError(
@@ -470,7 +663,11 @@ class ARDLOrderSelector:
                 raise ValueError(f"No ARDL lag could be scored for exogenous feature {feature}.")
 
             ranked = sorted(valid, key=lambda row: float(row["selected_score"]))
-            top = ranked[: int(self.config.top_n)]
+            block_subset_strategy = (
+                self.config.exog_lag_strategy.replace("-", "_")
+                == "ardl_block_subsets"
+            )
+            top = ranked[: 1 if block_subset_strategy else int(self.config.top_n)]
             top_lags_by_feature[feature] = [int(row["exog_lag"]) for row in top]
             for row in top:
                 scores_by_feature_lag[(feature, int(row["exog_lag"]))] = float(row["selected_score"])
@@ -489,6 +686,51 @@ class ARDLOrderSelector:
                 row["rank_within_feature"] = top_rank.get(exog_lag)
                 row["selected_for_ffnn_grid"] = exog_lag in top_rank
                 rows.append(row)
+
+        if self.config.exog_lag_strategy.replace("-", "_") == "ardl_block_subsets":
+            specs: list[LagSpec] = []
+            combo_rank = 0
+            for subset_size in range(1, len(features) + 1):
+                for included_tuple in combinations(features, subset_size):
+                    included = set(included_tuple)
+                    combo_rank += 1
+                    exog_lags = {
+                        feature: (
+                            tuple(range(1, int(top_lags_by_feature[feature][0]) + 1))
+                            if feature in included
+                            else tuple()
+                        )
+                        for feature in features
+                    }
+                    spec = LagSpec(target_lags=target_lags, exog_lags=exog_lags)
+                    combo_score = sum(
+                        scores_by_feature_lag[(feature, top_lags_by_feature[feature][0])]
+                        for feature in included
+                    )
+                    rows.append(
+                        {
+                            "feature": "__ffnn_combo__",
+                            "combo_rank": combo_rank,
+                            "combo_score_sum": float(combo_score),
+                            "combo_source": "aic_rank1_variable_block_subset",
+                            "lag_spec_strategy": "all_nonempty_variable_block_subsets",
+                            "target_lags": spec.target_lags,
+                            "exog_lags": spec.exog_lags,
+                            "included_variable_blocks": tuple(included_tuple),
+                            "included_block_count": int(subset_size),
+                            "lag_spec": spec.label,
+                            "selected_ic": self.config.ic.lower(),
+                        }
+                    )
+                    specs.append(spec)
+            if not specs:
+                raise ValueError(f"No variable-block subset could be built for target={target}.")
+            logger.info(
+                "Completed ARDL variable-block subset generation: target=%s n_specs=%d",
+                target,
+                len(specs),
+            )
+            return pd.DataFrame(rows), specs
 
         lag_combos = self._candidate_lag_combos(features, top_lags_by_feature, scores_by_feature_lag)
 

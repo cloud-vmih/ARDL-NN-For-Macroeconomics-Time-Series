@@ -1,0 +1,92 @@
+# VMD–ARDL–FFNN reproduction
+
+Time-series forecasting package with chronological train/validation/test splits,
+train-only lag selection, rolling one-step VMD decomposition caches and FFNN
+forecasting.
+
+The staged FFNN workflow evaluates every ARDL lag specification with both
+learning rates over three train-only expanding folds. It retains the raw
+mean-RMSE winner plus the parsimonious one-standard-error winner before the
+expensive outer-validation grid. Final reconstructed winners are selected on
+level RMSE, matching the primary reported paper metric.
+
+The recommended project entrypoint is:
+
+```bash
+python ../run_pipeline_advanced.py --pipeline vmd
+```
+
+The paper study is available from the same entrypoint:
+
+```bash
+python ../run_pipeline_advanced.py --pipeline benchmark \
+  --paper-seeds 7 42 123 2024 2025
+```
+
+It runs naïve and standalone-ARDL baselines, fixed/adaptive FFNN benchmarks,
+A0–A5 ablations, seed aggregation, Diebold–Mariano tests with Holm correction,
+lag-selection summaries, runtime/search-efficiency tables and paper figures.
+Use `--skip-varnn` when the optional TensorFlow dependency is unavailable.
+
+A separate study promotes the AIC block-subset two-stage workflow to the main
+Proposed model:
+
+```bash
+python ../run_pipeline_advanced.py --pipeline block-proposed-benchmark \
+  --paper-seeds 7 42 123 2024 2025
+```
+
+This profile preserves the legacy `benchmark` pipeline and writes the distinct
+`block_subset_proposed_v1` ablation schema. Its stochastic main benchmarks lock
+one model signature using mean validation performance over all reporting seeds:
+level RMSE for no-VMD FFNN/VARNN and reconstructed-level RMSE for VMD models.
+It then refits the locked winner at every seed; it never selects a best seed or
+uses test loss for selection.
+
+The new A0–A7 study isolates fixed/no-VMD baselines, ARDL target selection, AIC
+variable blocks, component versus reconstructed objectives, shared versus
+per-seed selection, and full-grid versus two-stage search. A7 is the Proposed
+model; A5 is its shared exhaustive reference and A6 is the per-seed
+counterfactual. The main benchmark also includes both the previous sequential
+target-then-exogenous workflow and `vmd_ardl_joint_select`; both use shared
+reconstructed-level mean-seed FFNN selection. The final FFNN learning-rate grid
+is `0.01, 0.001`; A7's
+lightweight screen remains fixed at `alpha=0.1` and learning rate `0.001`.
+
+Because this command runs A5, A6 and A7 in one study, smoke-test first with
+`--paper-seeds 7 --skip-varnn`. See
+`../Experimental_Plan_BlockSubset_Proposed.md` for the exact comparison rules.
+
+The benchmark also includes `vmd_ardl_block_subset_mean_seed`: ARDL locks target
+lags, AIC selects one distributed-lag block per exogenous variable, every non-empty
+block subset is crossed with the full FFNN grid, and shortlisted component
+signatures are combined and selected by mean reconstructed level validation RMSE
+across reporting seeds. This comparator is separate from, and does not replace,
+the A4 proposed pipeline.
+
+Use `--block-subset-search-strategy two-stage` on a benchmark run to fast-screen
+all block specs with `alpha=0.1`, learning rate `0.001`, and mean score across
+reporting seeds, retaining four specs/component for the full grid. The default is
+`full-grid`; both modes keep reconstructed level mean-seed final selection.
+
+FFNN and VARNN validation compare learning rates `0.01` and `0.001`. VARNN keeps
+32 hidden units and sigmoid fixed so this validation changes learning rate only.
+
+Run the predeclared one-factor-at-a-time robustness grid separately with
+`--pipeline sensitivity`; use `--paper-seeds 7` for a cheap smoke run before the
+full five-seed study.
+
+Available pipelines can be listed with `python ../run_pipeline_advanced.py --help`.
+VARNN pipelines require the optional dependency group:
+
+```bash
+pip install -e '.[varnn]'
+```
+
+Every invocation writes to a unique `results/<pipeline>/<run_id>/` directory and
+records its resolved configuration and status in `manifest.json`. Forecast metrics
+use the `rolling_one_step` protocol.
+
+Lag-screen audit files are written as `ffnn_lag_screen_folds_*.csv` and
+`ffnn_lag_screen_stability_*.csv`; benchmark runs additionally aggregate them as
+`lag_screen_fold_metrics.csv` and `lag_screen_stability.csv`.

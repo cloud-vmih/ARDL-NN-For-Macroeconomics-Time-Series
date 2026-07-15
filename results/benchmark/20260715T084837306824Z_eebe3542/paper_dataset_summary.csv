@@ -1,0 +1,6 @@
+variable,role,frequency,log_transform,stationarity_transform,n_observations,sample_start,sample_end
+Export_US,target,MS,True,diff1,219,2008-01-01,2026-03-01
+PCE,exogenous,MS,True,diff1,219,2008-01-01,2026-03-01
+US_Retail,exogenous,MS,True,diff1,219,2008-01-01,2026-03-01
+USD_VND,exogenous,MS,True,diff1,219,2008-01-01,2026-03-01
+Import_CN,exogenous,MS,True,diff1,219,2008-01-01,2026-03-01

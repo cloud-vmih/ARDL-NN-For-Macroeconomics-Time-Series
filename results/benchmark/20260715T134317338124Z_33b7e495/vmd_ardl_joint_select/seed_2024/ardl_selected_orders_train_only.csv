@@ -1,0 +1,149 @@
+feature,target_lag,target_lags,target_lag_strategy,selected_ic,selected_for_target_lags,target_lag_selection_fallback,error,exog_lag,AIC,BIC,selected_score,nobs,rank_within_feature,selected_for_ffnn_grid,combo_rank,combo_score_sum,combo_source,lag_spec_strategy,exog_lags,lag_spec,component
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7, 8)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD1
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD1
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,VMD1
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,3.0,,,,152.0,1.0,True,,,,,,,VMD1
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,4.0,,,,152.0,1.0,True,,,,,,,VMD1
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,5.0,,,,152.0,1.0,True,,,,,,,VMD1
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD1
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD1
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,VMD1
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,3.0,,,,152.0,1.0,True,,,,,,,VMD1
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,4.0,,,,152.0,1.0,True,,,,,,,VMD1
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,5.0,,,,152.0,,False,,,,,,,VMD1
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD1
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,1.0,,,,152.0,,False,,,,,,,VMD1
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,2.0,,,,152.0,,False,,,,,,,VMD1
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,3.0,,,,152.0,,False,,,,,,,VMD1
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,4.0,,,,152.0,,False,,,,,,,VMD1
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,5.0,,,,152.0,,False,,,,,,,VMD1
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD1
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,1.0,,,,152.0,,False,,,,,,,VMD1
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,2.0,,,,152.0,,False,,,,,,,VMD1
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,3.0,,,,152.0,,False,,,,,,,VMD1
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,4.0,,,,152.0,,False,,,,,,,VMD1
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,5.0,,,,152.0,,False,,,,,,,VMD1
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD1
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8)",,aic,,,,,,,,,,,1.0,0.0,ardl_select_order_joint,staged,"{'PCE': (1, 2, 3, 4, 5), 'US_Retail': (1, 2, 3, 4), 'USD_VND': (), 'Import_CN': ()}","target:[1, 2, 3, 4, 5, 6, 7, 8] | PCE:[1, 2, 3, 4, 5], US_Retail:[1, 2, 3, 4], USD_VND:[], Import_CN:[]",VMD1
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD2
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD2
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,VMD2
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,152.0,1.0,True,,,,,,,VMD2
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,152.0,1.0,True,,,,,,,VMD2
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,152.0,1.0,True,,,,,,,VMD2
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,152.0,1.0,True,,,,,,,VMD2
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,152.0,,False,,,,,,,VMD2
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,152.0,,False,,,,,,,VMD2
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,152.0,,False,,,,,,,VMD2
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,152.0,,False,,,,,,,VMD2
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,152.0,,False,,,,,,,VMD2
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD2
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD2
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,VMD2
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,152.0,1.0,True,,,,,,,VMD2
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,152.0,1.0,True,,,,,,,VMD2
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,152.0,1.0,True,,,,,,,VMD2
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD2
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD2
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,VMD2
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,152.0,1.0,True,,,,,,,VMD2
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,152.0,1.0,True,,,,,,,VMD2
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,152.0,1.0,True,,,,,,,VMD2
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,152.0,1.0,True,,,,,,,VMD2
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,,,,,,,,1.0,0.0,ardl_select_order_joint,staged,"{'PCE': (1, 2, 3, 4, 5, 6), 'US_Retail': (), 'USD_VND': (1, 2, 3, 4, 5), 'Import_CN': (1, 2, 3, 4, 5, 6)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] | PCE:[1, 2, 3, 4, 5, 6], US_Retail:[], USD_VND:[1, 2, 3, 4, 5], Import_CN:[1, 2, 3, 4, 5, 6]",VMD2
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD3
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD3
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,VMD3
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,3.0,,,,152.0,,False,,,,,,,VMD3
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,4.0,,,,152.0,,False,,,,,,,VMD3
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,5.0,,,,152.0,,False,,,,,,,VMD3
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD3
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD3
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,VMD3
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,3.0,,,,152.0,1.0,True,,,,,,,VMD3
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,4.0,,,,152.0,1.0,True,,,,,,,VMD3
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,5.0,,,,152.0,1.0,True,,,,,,,VMD3
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD3
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD3
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,VMD3
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,3.0,,,,152.0,1.0,True,,,,,,,VMD3
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,4.0,,,,152.0,,False,,,,,,,VMD3
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,5.0,,,,152.0,,False,,,,,,,VMD3
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD3
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,VMD3
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,2.0,,,,152.0,,False,,,,,,,VMD3
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,3.0,,,,152.0,,False,,,,,,,VMD3
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,4.0,,,,152.0,,False,,,,,,,VMD3
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,5.0,,,,152.0,,False,,,,,,,VMD3
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,6.0,,,,152.0,,False,,,,,,,VMD3
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",,aic,,,,,,,,,,,1.0,0.0,ardl_select_order_joint,staged,"{'PCE': (1, 2), 'US_Retail': (1, 2, 3, 4, 5), 'USD_VND': (1, 2, 3), 'Import_CN': (1,)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] | PCE:[1, 2], US_Retail:[1, 2, 3, 4, 5], USD_VND:[1, 2, 3], Import_CN:[1]",VMD3
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,RES
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,2.0,,,,152.0,,False,,,,,,,RES
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,3.0,,,,152.0,,False,,,,,,,RES
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,4.0,,,,152.0,,False,,,,,,,RES
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,5.0,,,,152.0,,False,,,,,,,RES
+PCE,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,6.0,,,,152.0,,False,,,,,,,RES
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,1.0,,,,152.0,,False,,,,,,,RES
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,2.0,,,,152.0,,False,,,,,,,RES
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,3.0,,,,152.0,,False,,,,,,,RES
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,4.0,,,,152.0,,False,,,,,,,RES
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,5.0,,,,152.0,,False,,,,,,,RES
+US_Retail,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,6.0,,,,152.0,,False,,,,,,,RES
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,1.0,,,,152.0,,False,,,,,,,RES
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,2.0,,,,152.0,,False,,,,,,,RES
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,3.0,,,,152.0,,False,,,,,,,RES
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,4.0,,,,152.0,,False,,,,,,,RES
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,5.0,,,,152.0,,False,,,,,,,RES
+USD_VND,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,6.0,,,,152.0,,False,,,,,,,RES
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,1.0,,,,152.0,1.0,True,,,,,,,RES
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,2.0,,,,152.0,1.0,True,,,,,,,RES
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,3.0,,,,152.0,,False,,,,,,,RES
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,4.0,,,,152.0,,False,,,,,,,RES
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,5.0,,,,152.0,,False,,,,,,,RES
+Import_CN,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,6.0,,,,152.0,,False,,,,,,,RES
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)",,aic,,,,,,,,,,,1.0,0.0,ardl_select_order_joint,staged,"{'PCE': (1,), 'US_Retail': (), 'USD_VND': (), 'Import_CN': (1, 2)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] | PCE:[1], US_Retail:[], USD_VND:[], Import_CN:[1, 2]",RES

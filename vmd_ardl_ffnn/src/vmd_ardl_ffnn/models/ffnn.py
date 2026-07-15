@@ -123,6 +123,18 @@ class NumpyFFNNRegressor:
             if not np.isfinite(loss):
                 break
 
+            self.loss_curve_.append(float(loss))
+            self.n_iter_ = iteration
+            if best_loss - loss > self.tol:
+                best_loss = loss
+                best_weights = [w.copy() for w in self.weights_]
+                best_biases = [b.copy() for b in self.biases_]
+                stale_iters = 0
+            else:
+                stale_iters += 1
+                if stale_iters >= self.n_iter_no_change:
+                    break
+
             grad_weights, grad_biases = self._backward(activations, pre_activations, y)
 
             # optional gradient clipping
@@ -153,19 +165,6 @@ class NumpyFFNNRegressor:
                 self.biases_[idx] -= self.learning_rate_init * corrected_bias_m / (
                     np.sqrt(corrected_bias_v) + self.epsilon
                 )
-
-            self.loss_curve_.append(float(loss))
-            self.n_iter_ = iteration
-
-            if best_loss - loss > self.tol:
-                best_loss = loss
-                best_weights = [w.copy() for w in self.weights_]
-                best_biases = [b.copy() for b in self.biases_]
-                stale_iters = 0
-            else:
-                stale_iters += 1
-                if stale_iters >= self.n_iter_no_change:
-                    break
 
         self.weights_ = best_weights
         self.biases_ = best_biases

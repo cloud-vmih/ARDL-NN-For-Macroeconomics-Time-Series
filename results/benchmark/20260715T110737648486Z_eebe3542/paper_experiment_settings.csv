@@ -1,0 +1,13 @@
+pipeline,model,ablation_id,included_in_benchmark,uses_vmd,target_lag_strategy,exog_lag_strategy,reporting_seeds,ffnn_learning_rate_grid,lag_screen_folds,lag_screen_validation_size,lag_screen_learning_rate_grid,lag_screen_selection_rule,final_selection_scale,varnn_learning_rate_grid,enabled,selection_seed_aggregation
+ffnn_fixed_no_vmd,FFNN_FixedLag,A0,True,False,fixed,fixed,"(7, 42, 123, 2024, 2025)","(0.01, 0.001)",3.0,12.0,"(0.01, 0.001)",one_standard_error,level,(),True,
+vmd_ffnn_fixed,VMD_FFNN_FixedLag,A1,True,True,fixed,fixed,"(7, 42, 123, 2024, 2025)","(0.01, 0.001)",3.0,12.0,"(0.01, 0.001)",one_standard_error,level,(),True,
+vmd_target_select_fixed_exog,VMD_ARDLTarget_FixedExog_FFNN,A2,False,True,ardl_select_order,fixed,"(7, 42, 123, 2024, 2025)","(0.01, 0.001)",3.0,12.0,"(0.01, 0.001)",one_standard_error,level,(),True,
+vmd_fixed_target_ardl_exog,VMD_FixedTarget_ARDLExog_FFNN,A3,False,True,fixed,ardl_screen,"(7, 42, 123, 2024, 2025)","(0.01, 0.001)",3.0,12.0,"(0.01, 0.001)",one_standard_error,level,(),True,
+vmd_ardl_ffnn_proposed,VMD_ARDL_FFNN_Proposed,A4,True,True,ardl_select_order,ardl_screen,"(7, 42, 123, 2024, 2025)","(0.01, 0.001)",3.0,12.0,"(0.01, 0.001)",one_standard_error,level,(),True,
+vmd_ardl_joint_select,VMD_ARDL_JointSelect_FFNN,A5,False,True,ardl_select_order_joint,ardl_select_order_joint,"(7, 42, 123, 2024, 2025)","(0.01, 0.001)",3.0,12.0,"(0.01, 0.001)",one_standard_error,level,(),True,
+ardl_ffnn_no_vmd,ARDL_FFNN_NoVMD,,True,False,ardl_select_order,ardl_screen,"(7, 42, 123, 2024, 2025)","(0.01, 0.001)",3.0,12.0,"(0.01, 0.001)",one_standard_error,level,(),True,
+vmd_ardl_block_subset_mean_seed,VMD_ARDL_BlockSubset_MeanSeed_FFNN,,True,True,ardl_select_order,aic_rank1_variable_block_subsets,"(7, 42, 123, 2024, 2025)","(0.01, 0.001)",0.0,0.0,(),,component_transformed,(),True,mean_validation_across_reporting_seeds
+naive_last_observation,Naive_LastObservation,,True,False,,,(),(),,,(),,,(),True,
+naive_seasonal,Naive_Seasonal12,,True,False,,,(),(),,,(),,,(),True,
+standalone_ardl,Standalone_ARDL,,True,False,,,(),(),,,(),,,(),True,
+varnn,VARNN,,True,False,,,"(7, 42, 123, 2024, 2025)",(),,,(),,,"(0.01, 0.001)",True,

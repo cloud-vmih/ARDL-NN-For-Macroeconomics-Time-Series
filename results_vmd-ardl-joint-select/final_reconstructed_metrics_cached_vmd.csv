@@ -1,0 +1,13 @@
+dataset,model,uses_vmd,vmd_setting,vmd_modes,activation,split,scale,RMSE,MAE,MAPE,Directional_Accuracy
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,reconstructed_transformed,0.10731894112228184,0.08022625918592778,235.73877775595298,65.625
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,level,1103002.84035821,845675.1467369858,8.024709804520956,62.5
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,reconstructed_transformed,0.10635823592036489,0.07522690062399338,222.2283868138182,78.125
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,level,842258.2402493039,615486.2896773131,7.860138614497757,68.75
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,reconstructed_transformed,0.10645279753113589,0.07751330500473254,170.06650084751607,78.125
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,level,1066210.4857815146,804185.9366929708,7.782995127706868,68.75
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,reconstructed_transformed,0.11607365874858144,0.08276337251816918,223.12867998150736,75.0
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,level,933774.1136060198,678842.9074309765,8.69042142264055,62.5
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,reconstructed_transformed,0.10697393119829936,0.07664784393484303,169.77899922016354,71.875
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,level,1065647.3772484208,796249.2701351842,7.691666965826446,62.5
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,reconstructed_transformed,0.12050102972683333,0.08183740700850711,213.6005094919741,75.0
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,level,965300.3999567365,665384.0221186909,8.653536585279454,68.75

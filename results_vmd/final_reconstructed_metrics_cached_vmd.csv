@@ -1,0 +1,5 @@
+dataset,model,uses_vmd,vmd_setting,vmd_modes,activation,split,scale,RMSE,MAE,MAPE,Directional_Accuracy
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,reconstructed_transformed,0.14051446033626064,0.10391875843025275,373.27538228166236,62.5
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,test,level,1364209.9119539931,1053216.155688895,10.347298240073833,56.25
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,reconstructed_transformed,0.12753449512270465,0.0926137112201845,185.06671617727667,71.875
+df_final,VMD_ARDL_FFNN,True,cached_vmd,3,tanh,validation,level,1089355.682979217,786364.253514405,9.859702738675658,56.25
