@@ -26,7 +26,16 @@ python ../run_pipeline_advanced.py --pipeline benchmark \
 It runs naïve and standalone-ARDL baselines, fixed/adaptive FFNN benchmarks,
 A0–A5 ablations, seed aggregation, Diebold–Mariano tests with Holm correction,
 lag-selection summaries, runtime/search-efficiency tables and paper figures.
-Use `--skip-varnn` when the optional TensorFlow dependency is unavailable.
+The hard-config comparator is included as B7 without changing A0–A5. Use
+`--skip-varnn` when the optional TensorFlow dependency is unavailable.
+
+Both benchmark profiles report two distinct metric tables.
+`benchmark_metrics_comparison.csv` is the primary table and summarizes metrics
+computed separately per seed with mean, standard deviation, median and count.
+`benchmark_seed_robustness_metrics.csv` is an explicit compatibility alias of
+that primary table. `benchmark_ensemble_metrics_comparison.csv` is secondary:
+it scores the date-wise mean prediction across seeds and is the estimand used
+by DM/Holm tests.
 
 A separate study promotes the AIC block-subset two-stage workflow to the main
 Proposed model:
@@ -56,6 +65,21 @@ lightweight screen remains fixed at `alpha=0.1` and learning rate `0.001`.
 Because this command runs A5, A6 and A7 in one study, smoke-test first with
 `--paper-seeds 7 --skip-varnn`. See
 `../Experimental_Plan_BlockSubset_Proposed.md` for the exact comparison rules.
+
+The train-only hard-configuration comparator can also run independently:
+
+```bash
+python ../run_pipeline_advanced.py --pipeline vmd-ardl-hard-ffnn \
+  --paper-seeds 7 42 123 2024 2025
+```
+
+It keeps the full Cartesian product of the top three ARDL distributed-lag
+orders per exogenous feature. Each component/lag specification receives exactly
+one architecture, activation, learning rate and alpha from the preregistered
+IMF frequency/entropy/roughness and lag-load policy. It does not run an FFNN
+hyperparameter grid. The top three candidates/component are still combined and
+selected by shared mean reconstructed-level validation RMSE. The same model is
+included as B7 in `benchmark` and B8 in `block-proposed-benchmark`.
 
 The benchmark also includes `vmd_ardl_block_subset_mean_seed`: ARDL locks target
 lags, AIC selects one distributed-lag block per exogenous variable, every non-empty

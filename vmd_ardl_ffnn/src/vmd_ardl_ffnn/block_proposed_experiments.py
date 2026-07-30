@@ -11,12 +11,18 @@ from .artifacts import write_csv
 from .config import ExperimentConfig
 from .evaluation import normalize_forecasts
 from .experiment import VMDARDLFFNNExperiment
+from .hard_ffnn_experiments import (
+    HARD_FFNN_MODEL,
+    HARD_FFNN_PIPELINE,
+    run_hard_ffnn_variant as _run_hard_ffnn_variant,
+)
 from .models.varnn import VARNNConfig, run_varnn_pipeline
 from .paper_baselines import run_linear_ardl_baseline, run_naive_baseline
 from .paper_experiments import (
     _aggregate_seed_metrics,
     _dataset_audit,
     _efficiency_row,
+    _ensemble_prediction_metrics,
     _forecast_date_coverage,
     _lag_selection_rows,
 )
@@ -39,6 +45,7 @@ BENCHMARK_PIPELINES = (
     "varnn",
     SEQUENTIAL_PIPELINE,
     JOINT_SELECT_PIPELINE,
+    HARD_FFNN_PIPELINE,
     PROPOSED_PIPELINE,
 )
 
@@ -669,6 +676,44 @@ def run_block_proposed_experiments(
             ),
         )
 
+    started = perf_counter()
+    (
+        hard_result,
+        hard_metrics,
+        hard_forecasts,
+        hard_config,
+    ) = _run_hard_ffnn_variant(
+        csv_path,
+        config,
+        seeds=seeds,
+        output_dir=root / HARD_FFNN_PIPELINE,
+    )
+    register_shared(
+        pipeline=HARD_FFNN_PIPELINE,
+        model=HARD_FFNN_MODEL,
+        result=hard_result,
+        metrics=hard_metrics,
+        forecasts=hard_forecasts,
+        variant_config=hard_config,
+        elapsed=perf_counter() - started,
+        uses_vmd=True,
+        target_strategy="ardl_select_order",
+        exog_strategy="ardl_screen_top3_full_product",
+        selection_protocol=(
+            "mean_reconstructed_level_validation_across_reporting_seeds"
+        ),
+        search_strategy="full_product_lag_search_with_hard_ffnn_policy",
+    )
+    settings_rows[-1]["ffnn_config_source"] = (
+        "train_only_frequency_lag_policy"
+    )
+    settings_rows[-1]["hard_ffnn_policy_version"] = (
+        hard_config.hard_ffnn.policy_version
+    )
+    settings_rows[-1]["theoretical_lag_spec_count_per_component"] = (
+        3 ** len(config.data.features)
+    )
+
     for pipeline, model, strategy in (
         (
             "a5_vmd_block_subset_shared_full_grid",
@@ -829,12 +874,20 @@ def run_block_proposed_experiments(
         for pipeline in BENCHMARK_PIPELINES
         if pipeline in set(forecasts["pipeline"])
     )
-    benchmark_metrics = aggregate_metrics[
-        aggregate_metrics["pipeline"].isin(active_benchmarks)
-    ].copy()
     benchmark_forecasts = forecasts[
         forecasts["pipeline"].isin(active_benchmarks)
     ].copy()
+    benchmark_seed_robustness = aggregate_metrics[
+        aggregate_metrics["pipeline"].isin(active_benchmarks)
+    ].copy()
+    benchmark_ensemble_metrics = _ensemble_prediction_metrics(
+        benchmark_forecasts,
+        seed_metrics,
+    )
+    # Primary reporting estimand: expected single-model performance across
+    # random initializations.  The mean-prediction ensemble remains an
+    # explicitly named secondary artifact.
+    benchmark_metrics = benchmark_seed_robustness
     date_coverage = _forecast_date_coverage(benchmark_forecasts)
     ablation_metrics = aggregate_metrics[
         aggregate_metrics["pipeline"].isin(ABLATION_IDS)
@@ -894,8 +947,20 @@ def run_block_proposed_experiments(
     write_csv(stationarity_summary, root / "paper_stationarity_screen.csv")
     write_csv(date_coverage, root / "paper_forecast_date_coverage.csv")
     write_csv(aggregate_metrics, root / "paper_metrics_summary.csv")
+    write_csv(
+        _ensemble_prediction_metrics(forecasts, seed_metrics),
+        root / "paper_ensemble_metrics_summary.csv",
+    )
     write_csv(forecasts, root / "paper_forecasts.csv")
     write_csv(benchmark_metrics, root / "benchmark_metrics_comparison.csv")
+    write_csv(
+        benchmark_ensemble_metrics,
+        root / "benchmark_ensemble_metrics_comparison.csv",
+    )
+    write_csv(
+        benchmark_seed_robustness,
+        root / "benchmark_seed_robustness_metrics.csv",
+    )
     write_csv(benchmark_forecasts, root / "benchmark_forecasts_comparison.csv")
     write_csv(ablation_metrics, root / "ablation_metrics.csv")
     write_csv(ablation_forecasts, root / "ablation_forecasts.csv")
@@ -914,10 +979,11 @@ def run_block_proposed_experiments(
     proposed_result = variant_results[PROPOSED_PIPELINE][0]
     write_paper_figures(
         benchmark_forecasts,
-        benchmark_metrics,
+        benchmark_ensemble_metrics,
         efficiency,
         lag_frequency,
         root,
+        seed_robustness_metrics=benchmark_seed_robustness,
         training_components=proposed_result.get("training_components"),
         target=config.data.target,
         proposed_pipeline=PROPOSED_PIPELINE,
@@ -925,6 +991,8 @@ def run_block_proposed_experiments(
 
     return {
         "comparison_metrics": benchmark_metrics,
+        "ensemble_comparison_metrics": benchmark_ensemble_metrics,
+        "seed_robustness_metrics": benchmark_seed_robustness,
         "comparison_forecasts": benchmark_forecasts,
         "seed_metrics": seed_metrics,
         "aggregate_metrics": aggregate_metrics,

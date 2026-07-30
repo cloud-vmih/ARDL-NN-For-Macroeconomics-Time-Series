@@ -121,9 +121,10 @@ evaluation dates, and target definition.
 | B4 | VMD + FFNN with fixed lags | Isolate VMD without adaptive lag selection |
 | B5 | VARNN | Multivariate neural time-series benchmark |
 | B6 | VMD + AIC variable-block subsets + FFNN | Exhaustive block-subset comparator with mean reconstructed-level validation selection across seeds |
+| B7 | VMD + ARDL top-3 full-product + hard-config FFNN | Lag-combination comparator without an FFNN hyperparameter grid |
 | P | Proposed sequential VMD–ARDL–FFNN | Full proposed framework |
 
-The implementation now includes all B0–B6 baselines/comparators and the proposed sequential
+The implementation now includes all B0–B7 baselines/comparators and the proposed sequential
 model. VARNN remains an optional TensorFlow dependency; if it cannot run, the study
 records this explicitly in `skipped_models.csv` and must not describe the resulting
 table as including B5.
@@ -162,6 +163,29 @@ then enter the complete declared FFNN grid and the same mean reconstructed-level
 combination selection described above. The default `full_grid` variant remains
 available, and papers must report which strategy generated the presented results.
 
+### 4.2 B7 hard-config full-product protocol
+
+B7 is a benchmark comparator, not an ablation and not a replacement for Proposed
+A4. For each train-only VMD component it:
+
+1. selects and locks target lags with ARDL SelectOrder;
+2. ranks distributed-lag orders independently for every exogenous variable by AIC
+   conditional on those target lags, retaining the top three orders;
+3. expands order `q` into block `1..q` and evaluates the full Cartesian product
+   (up to `3^4 = 81` lag specs/component for four exogenous variables);
+4. deterministically assigns one architecture, activation, learning rate and alpha
+   from train-only IMF frequency, spectral entropy, roughness and lag load;
+5. fits that fixed configuration for every reporting seed, with no FFNN
+   hyperparameter grid;
+6. retains the top three shared signatures/component and chooses the final
+   cross-component combination by mean reconstructed level validation RMSE across
+   the reporting seeds;
+7. locks the winner, refits on train plus validation and reports test metrics for
+   every seed.
+
+B7 forecasts enter the same benchmark metrics, date-coverage audit and pairwise
+DM/Holm tests as B0–B6 and Proposed.
+
 ## 5. Ablation Study
 
 The ablation must change one module at a time while keeping data, VMD settings,
@@ -198,7 +222,11 @@ Recommended procedure:
    seeds, with MAE as the first tie-breaker.
 2. Lock the selected lag structure and hyperparameters.
 3. Refit and evaluate the locked configuration for every seed.
-4. Report test mean, standard deviation, median, and the individual seed results.
+4. Report test mean, standard deviation, median, and the individual seed results
+   as the primary expected single-model performance analysis.
+5. As a secondary deployment analysis, average predictions across seeds at each
+   forecast date and score that ensemble prediction once. Use this ensemble
+   prediction in DM/Holm tests and label its estimand explicitly.
 
 If computational constraints require a single seed during structural screening,
 declare that seed in advance, then rerun the locked winner using all reporting seeds.
@@ -222,8 +250,13 @@ grid. The validation winner is locked and reused during train-plus-validation re
 
 ## 7. Statistical Validation
 
-- Apply the Diebold–Mariano test to paired one-step forecast loss differentials on
+- Apply the Diebold-Mariano test to paired one-step forecast loss differentials on
   the common test dates.
+- Use mean/std/median/count of separately scored seed runs as the primary accuracy
+  estimand, representing expected single-model performance across initializations.
+- Report ensemble-mean prediction metrics as a secondary deployment estimand.
+  Use that single forecast series for DM/Holm and do not present its DM result as
+  a test of the per-seed metric distribution.
 - Report the DM statistic, p-value, loss function, and compared models.
 - Correct for multiple pairwise comparisons using Holm's procedure.
 - Report paired error differences and bootstrap confidence intervals where feasible.
@@ -360,7 +393,9 @@ python run_pipeline_advanced.py \
 
 Use `--skip-varnn` only when intentionally omitting B5. The main machine-readable
 outputs are `paper_seed_metrics.csv`, `paper_metrics_summary.csv`,
-`benchmark_metrics_comparison.csv`, `ablation_metrics.csv`,
+`paper_ensemble_metrics_summary.csv`, `benchmark_metrics_comparison.csv`,
+`benchmark_ensemble_metrics_comparison.csv`,
+`benchmark_seed_robustness_metrics.csv`, `ablation_metrics.csv`,
 `diebold_mariano_tests.csv`, `lag_selection_frequency.csv`, and
 `efficiency_summary.csv`. `paper_forecast_date_coverage.csv` must show identical
 validation/test date sets before any pairwise accuracy claim is made.
@@ -374,6 +409,10 @@ B6 additionally writes `ardl_variable_blocks_train_only.csv`,
 `ffnn_block_subset_mean_seed_selection.csv`, and the locked per-seed component
 and reconstructed forecast/metric tables under
 `vmd_ardl_block_subset_mean_seed/`.
+
+B7 writes its train-only descriptors, policy assignments, component shortlist,
+reconstructed shared selection and locked forecasts under
+`vmd_ardl_hard_config_ffnn/`.
 
 ## 14. Paper Contributions to Test
 

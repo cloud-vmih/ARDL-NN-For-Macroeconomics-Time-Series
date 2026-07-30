@@ -26,11 +26,11 @@ python -m vmd_ardl_ffnn.cli \
 
 | Option | Default | Choices | Ý nghĩa |
 | --- | --- | --- | --- |
-| `--pipeline` | `vmd` | `vmd`, `no-vmd`, `both`, `varnn`, `model-comparison`, `benchmark`, `block-proposed-benchmark`, `sensitivity`, `vmd-ardl-select-order`, `vmd-ardl-joint-select` | `vmd` và `vmd-ardl-select-order` dùng proposed sequential SelectOrder-target rồi ARDL-exog screening; `benchmark` giữ study A0–A5 cũ; `block-proposed-benchmark` lấy AIC block-subset two-stage làm Proposed, dùng shared mean-seed selection, chạy A0–A7 và gồm cả sequential lẫn joint-select comparators; `sensitivity` chạy robustness grid one-factor-at-a-time; joint-select là comparator chọn target/exog đồng thời. |
+| `--pipeline` | `vmd` | `vmd`, `no-vmd`, `both`, `varnn`, `model-comparison`, `benchmark`, `block-proposed-benchmark`, `sensitivity`, `vmd-ardl-select-order`, `vmd-ardl-joint-select`, `vmd-ardl-hard-ffnn` | `vmd` và `vmd-ardl-select-order` dùng proposed sequential SelectOrder-target rồi ARDL-exog screening; `benchmark` giữ study A0–A5 và thêm B7 hard-config; `block-proposed-benchmark` lấy AIC block-subset two-stage làm Proposed, chạy A0–A7 và gồm cùng comparator dưới mã B8; `vmd-ardl-hard-ffnn` grid full-product top-3 exog orders nhưng gán đúng một train-only frequency/lag FFNN config/spec; `sensitivity` chạy robustness grid; joint-select chọn target/exog đồng thời. |
 | `--vmd-modes` | `3` | integer | Số VMD modes, chưa tính residual `RES`. |
 | `--vmd-backend` | `self-contained` | `self-contained`, `library` | Chọn implementation VMD. `self-contained` dùng code nội bộ; `library` gọi thư viện VMD tùy chọn như `vmdpy`/`sktime.libs.vmdpy`. |
 | `--no-stationarity` | `False` | flag | Nếu bật, bỏ qua ADF/KPSS và không tự chọn `level`/`diff1`. |
-| `--paper-seeds` | `7 42 123 2024 2025` | one or more integers | Reporting seeds cho `benchmark`, `block-proposed-benchmark` và `sensitivity`; không chọn seed thắng theo test. |
+| `--paper-seeds` | `7 42 123 2024 2025` | one or more integers | Reporting seeds cho `benchmark`, `block-proposed-benchmark`, `vmd-ardl-hard-ffnn` và `sensitivity`; không chọn seed thắng theo test. |
 | `--skip-varnn` | `False` | flag | Bỏ VARNN khi không cài TensorFlow; các benchmark/ablation còn lại vẫn chạy. |
 | `--block-subset-search-strategy` | `full-grid` | `full-grid`, `two-stage` | Chỉ điều khiển comparator B6 trong `benchmark` cũ. `block-proposed-benchmark` luôn chạy A5 full-grid và A7 two-stage để có direct ablation; A7 screen bằng `alpha=0.1`, LR `0.001`, mean qua paper seeds và giữ top 4 specs/component. |
 

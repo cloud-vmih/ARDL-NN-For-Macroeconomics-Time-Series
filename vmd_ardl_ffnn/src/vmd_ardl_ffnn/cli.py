@@ -165,6 +165,7 @@ def main() -> None:
             "sensitivity",
             "vmd-ardl-select-order",
             "vmd-ardl-joint-select",
+            "vmd-ardl-hard-ffnn",
         ],
         default="vmd",
         help=(
@@ -173,6 +174,8 @@ def main() -> None:
             "'benchmark' runs the complete paper benchmark, A0-A5 ablation and DM tests; "
             "'block-proposed-benchmark' promotes the AIC block-subset two-stage "
             "workflow to Proposed, uses shared mean-seed model selection, and runs A0-A7; "
+            "'vmd-ardl-hard-ffnn' full-grids top-3 ARDL lag orders while assigning "
+            "one train-only frequency/lag-based FFNN configuration per candidate; "
             "'sensitivity' runs the predeclared one-factor-at-a-time robustness grid; "
             "'vmd-ardl-select-order' runs VMD-ARDL-FFNN using statsmodels ardl_select_order for target lag selection; "
             "'vmd-ardl-joint-select' runs VMD-ARDL-FFNN using statsmodels ardl_select_order for both target and exogenous lag selection."
@@ -338,8 +341,10 @@ def main() -> None:
                 "-", "_"
             ),
         )
-        print("Benchmark comparison metrics:")
+        print("Benchmark primary per-seed mean/std metrics:")
         print(result["comparison_metrics"].to_string(index=False))
+        print("\nBenchmark secondary ensemble mean-prediction metrics:")
+        print(result["ensemble_comparison_metrics"].to_string(index=False))
     elif args.pipeline == "block-proposed-benchmark":
         result = experiment.run_block_proposed_benchmark(
             args.data,
@@ -347,8 +352,34 @@ def main() -> None:
             seeds=tuple(args.paper_seeds),
             include_varnn=not args.skip_varnn,
         )
-        print("Block-proposed benchmark comparison metrics:")
+        print("Block-proposed benchmark primary per-seed mean/std metrics:")
         print(result["comparison_metrics"].to_string(index=False))
+        print("\nBlock-proposed benchmark secondary ensemble mean-prediction metrics:")
+        print(result["ensemble_comparison_metrics"].to_string(index=False))
+    elif args.pipeline == "vmd-ardl-hard-ffnn":
+        hard_config = replace(
+            config,
+            ardl=replace(
+                config.ardl,
+                ic="aic",
+                target_lag_strategy="ardl_select_order",
+                exog_lag_strategy="ardl_screen",
+                lag_spec_strategy="full_product",
+                top_n=3,
+            ),
+            ffnn=replace(
+                config.ffnn,
+                seed_grid=tuple(args.paper_seeds),
+            ),
+        )
+        result = VMDARDLFFNNExperiment(
+            hard_config
+        ).run_hard_ffnn_comparator(
+            args.data,
+            reporting_seeds=tuple(args.paper_seeds),
+        )
+        print("Hard-config VMD-ARDL-FFNN metrics:")
+        print(result["final_metrics"].to_string(index=False))
     elif args.pipeline == "sensitivity":
         from .sensitivity_experiments import run_sensitivity_experiments
 

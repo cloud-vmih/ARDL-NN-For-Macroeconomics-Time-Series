@@ -1,0 +1,3 @@
+model,pipeline,target,split,scale,forecast_protocol,RMSE,MAE,MAPE,Directional_Accuracy
+Standalone_ARDL,standalone_ardl,Export_US,validation,level,rolling_one_step,1209736.1172314687,917698.7989781862,11.74020438180313,65.625
+Standalone_ARDL,standalone_ardl,Export_US,test,level,rolling_one_step,1084832.7515352864,808376.1501648923,7.535005496202181,68.75

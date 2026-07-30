@@ -1,0 +1,3 @@
+model,pipeline,target,split,scale,forecast_protocol,RMSE,MAE,MAPE,Directional_Accuracy
+Naive_LastObservation,Naive_LastObservation,Export_US,validation,level,rolling_one_step,1099420.5435449881,782291.8799999983,10.01579379832387,0.0
+Naive_LastObservation,Naive_LastObservation,Export_US,test,level,rolling_one_step,1611731.1187857494,1092536.597878788,10.435991987111576,0.0

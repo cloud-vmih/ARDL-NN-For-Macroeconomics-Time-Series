@@ -1,0 +1,5 @@
+dataset,model,target,uses_vmd,vmd_setting,vmd_modes,activation,split,scale,forecast_protocol,RMSE,MAE,MAPE,Directional_Accuracy
+df_final,VMD_ARDL_FFNN,Export_US,True,cached_vmd,3,tanh,test,reconstructed_transformed,rolling_one_step,0.1306477167803814,0.09910203108175249,294.00027696376884,75.0
+df_final,VMD_ARDL_FFNN,Export_US,True,cached_vmd,3,tanh,test,level,rolling_one_step,1471294.6513176432,1075121.2241556065,9.594044388681358,75.0
+df_final,VMD_ARDL_FFNN,Export_US,True,cached_vmd,3,tanh,validation,reconstructed_transformed,rolling_one_step,0.11288041959421903,0.08474678779501764,242.5102436771093,78.125
+df_final,VMD_ARDL_FFNN,Export_US,True,cached_vmd,3,tanh,validation,level,rolling_one_step,855621.7179747311,664483.7833691553,8.509898150881451,84.375

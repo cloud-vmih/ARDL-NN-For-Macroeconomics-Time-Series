@@ -12,6 +12,12 @@ from .artifacts import write_csv
 from .config import ExperimentConfig
 from .evaluation import normalize_forecasts
 from .experiment import VMDARDLFFNNExperiment
+from .hard_ffnn_experiments import (
+    HARD_FFNN_MODEL,
+    HARD_FFNN_PIPELINE,
+    run_hard_ffnn_variant as _run_hard_ffnn_variant,
+)
+from .metrics import evaluate_forecast
 from .models.varnn import VARNNConfig, run_varnn_pipeline
 from .paper_baselines import run_linear_ardl_baseline, run_naive_baseline
 from .paper_reporting import lag_selection_frequency, write_paper_figures
@@ -78,6 +84,7 @@ BENCHMARK_PIPELINES = (
     "varnn",
     "vmd_ardl_ffnn_proposed",
     BLOCK_SUBSET_PIPELINE,
+    HARD_FFNN_PIPELINE,
 )
 
 ABLATION_IDS = {
@@ -201,7 +208,63 @@ def _aggregate_seed_metrics(seed_metrics: pd.DataFrame) -> pd.DataFrame:
         column if isinstance(column, str) else "_".join(part for part in column if part)
         for column in aggregate.columns
     ]
+    aggregate.insert(5, "estimand", "distribution_of_per_seed_metrics")
     return aggregate
+
+
+def _ensemble_prediction_metrics(
+    forecasts: pd.DataFrame,
+    seed_metrics: pd.DataFrame,
+) -> pd.DataFrame:
+    """Score the date-wise mean prediction across seeds for every pipeline."""
+    if forecasts.empty:
+        return pd.DataFrame()
+    group_columns = ["pipeline", "split", "scale", "date"]
+    actual_counts = forecasts.groupby(group_columns)["actual"].nunique(dropna=False)
+    if actual_counts.gt(1).any():
+        raise ValueError(
+            "Cannot score ensemble predictions because actual values differ "
+            "within a pipeline/split/date."
+        )
+    ensemble = (
+        forecasts.groupby(group_columns, as_index=False)
+        .agg(
+            actual=("actual", "first"),
+            predicted=("predicted", "mean"),
+            ensemble_member_count=("seed", "nunique"),
+        )
+    )
+    ensemble["ensemble_member_count"] = ensemble[
+        "ensemble_member_count"
+    ].clip(lower=1)
+    metadata = (
+        seed_metrics.groupby("pipeline", as_index=False)
+        .agg(model=("model", "first"), target=("target", "first"))
+        .set_index("pipeline")
+    )
+    rows: list[dict[str, Any]] = []
+    for (pipeline, split, scale), frame in ensemble.groupby(
+        ["pipeline", "split", "scale"],
+        sort=True,
+    ):
+        metrics = evaluate_forecast(frame["actual"], frame["predicted"])
+        rows.append(
+            {
+                "model": metadata.loc[pipeline, "model"],
+                "pipeline": pipeline,
+                "target": metadata.loc[pipeline, "target"],
+                "split": split,
+                "scale": scale,
+                "estimand": "ensemble_mean_prediction",
+                "ensemble_member_count": int(
+                    frame["ensemble_member_count"].max()
+                ),
+                **metrics,
+            }
+        )
+    return pd.DataFrame(rows).sort_values(
+        ["pipeline", "split", "scale"]
+    ).reset_index(drop=True)
 
 
 def _lag_count(value: Any) -> int:
@@ -304,6 +367,10 @@ def _study_settings(
     lag_screen_selection_rule: str,
     final_selection_scale: str,
     block_subset_search_strategy: str,
+    hard_ffnn_policy_version: str,
+    hard_ffnn_top_component_candidates: int,
+    hard_ffnn_order_count: int,
+    feature_count: int,
 ) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for pipeline, definition in NEURAL_VARIANTS.items():
@@ -357,6 +424,36 @@ def _study_settings(
             ),
             "block_subset_fast_screen_learning_rate_init": (
                 0.001 if block_subset_search_strategy == "two_stage" else None
+            ),
+            "varnn_learning_rate_grid": tuple(),
+            "enabled": True,
+        }
+    )
+    rows.append(
+        {
+            "pipeline": HARD_FFNN_PIPELINE,
+            "model": HARD_FFNN_MODEL,
+            "ablation_id": None,
+            "included_in_benchmark": True,
+            "uses_vmd": True,
+            "target_lag_strategy": "ardl_select_order",
+            "exog_lag_strategy": "ardl_screen_top3_full_product",
+            "reporting_seeds": seeds,
+            "ffnn_learning_rate_grid": tuple(),
+            "lag_screen_folds": 0,
+            "lag_screen_validation_size": 0,
+            "lag_screen_learning_rate_grid": tuple(),
+            "lag_screen_selection_rule": None,
+            "final_selection_scale": "reconstructed_level",
+            "selection_seed_aggregation": (
+                "mean_reconstructed_level_validation_across_reporting_seeds"
+            ),
+            "search_strategy": "full_product_lag_search_with_hard_ffnn_policy",
+            "ffnn_config_source": "train_only_frequency_lag_policy",
+            "hard_ffnn_policy_version": hard_ffnn_policy_version,
+            "top_component_candidates": hard_ffnn_top_component_candidates,
+            "theoretical_lag_spec_count_per_component": (
+                hard_ffnn_order_count ** feature_count
             ),
             "varnn_learning_rate_grid": tuple(),
             "enabled": True,
@@ -476,7 +573,7 @@ def run_paper_experiments(
     include_varnn: bool = True,
     block_subset_search_strategy: str = "full_grid",
 ) -> dict[str, Any]:
-    """Run the B0–B6 benchmark, A0–A5 ablations, summaries and DM tests."""
+    """Run the B0–B7 benchmark, A0–A5 ablations, summaries and DM tests."""
     seeds = tuple(dict.fromkeys(int(seed) for seed in seeds))
     if not seeds:
         raise ValueError("Paper experiments require at least one reporting seed.")
@@ -608,6 +705,59 @@ def run_paper_experiments(
         )
     )
 
+    started = perf_counter()
+    hard_result, hard_metrics, hard_forecasts, hard_config = (
+        _run_hard_ffnn_variant(
+            csv_path,
+            config,
+            seeds=tuple(seeds),
+            output_dir=root / HARD_FFNN_PIPELINE,
+        )
+    )
+    variant_results[HARD_FFNN_PIPELINE] = [hard_result]
+    metric_frames.append(hard_metrics)
+    forecast_frames.append(hard_forecasts)
+    for seed in seeds:
+        lag_frames.append(
+            _lag_selection_rows(
+                hard_result,
+                pipeline=HARD_FFNN_PIPELINE,
+                seed=seed,
+            )
+        )
+    hard_efficiency = _efficiency_row(
+        hard_result,
+        hard_config,
+        pipeline=HARD_FFNN_PIPELINE,
+        seed=None,
+        elapsed_seconds=perf_counter() - started,
+    )
+    hard_component_count = int(
+        hard_result["best_component_models"]["component"].nunique()
+    )
+    hard_order_count = min(3, int(config.ardl.max_exog_lag))
+    hard_theoretical_specs = (
+        hard_order_count ** len(config.data.features)
+    ) * hard_component_count
+    hard_retained_specs = len(
+        hard_result.get("hard_ffnn_policy_assignments", pd.DataFrame())
+    )
+    hard_efficiency.update(
+        {
+            "theoretical_full_product_lag_specs": hard_theoretical_specs,
+            "retained_lag_specs_after_ardl": hard_retained_specs,
+            "lag_search_reduction_pct": (
+                100.0
+                * (hard_theoretical_specs - hard_retained_specs)
+                / hard_theoretical_specs
+                if hard_theoretical_specs
+                and hard_retained_specs <= hard_theoretical_specs
+                else float("nan")
+            ),
+        }
+    )
+    efficiency_rows.append(hard_efficiency)
+
     skipped_rows: list[dict[str, str]] = []
     if include_varnn:
         variant_results["varnn"] = []
@@ -654,8 +804,18 @@ def run_paper_experiments(
     seed_metrics = pd.concat(metric_frames, ignore_index=True, sort=False)
     forecasts = pd.concat(forecast_frames, ignore_index=True, sort=False)
     aggregate_metrics = _aggregate_seed_metrics(seed_metrics)
-    benchmark_metrics = aggregate_metrics[aggregate_metrics["pipeline"].isin(BENCHMARK_PIPELINES)].copy()
     benchmark_forecasts = forecasts[forecasts["pipeline"].isin(BENCHMARK_PIPELINES)].copy()
+    benchmark_seed_robustness = aggregate_metrics[
+        aggregate_metrics["pipeline"].isin(BENCHMARK_PIPELINES)
+    ].copy()
+    benchmark_ensemble_metrics = _ensemble_prediction_metrics(
+        benchmark_forecasts,
+        seed_metrics,
+    )
+    # Primary reporting estimand: expected single-model performance across
+    # random initializations.  The mean-prediction ensemble remains an
+    # explicitly named secondary artifact.
+    benchmark_metrics = benchmark_seed_robustness
     date_coverage = _forecast_date_coverage(benchmark_forecasts)
     ablation_metrics = aggregate_metrics[aggregate_metrics["pipeline"].isin(ABLATION_IDS)].copy()
     ablation_metrics.insert(0, "ablation_id", ablation_metrics["pipeline"].map(ABLATION_IDS))
@@ -677,6 +837,12 @@ def run_paper_experiments(
         lag_screen_selection_rule=config.ffnn.lag_screen_selection_rule,
         final_selection_scale=config.ffnn.final_selection_scale,
         block_subset_search_strategy=block_subset_search_strategy,
+        hard_ffnn_policy_version=config.hard_ffnn.policy_version,
+        hard_ffnn_top_component_candidates=(
+            config.hard_ffnn.top_component_candidates
+        ),
+        hard_ffnn_order_count=min(3, int(config.ardl.max_exog_lag)),
+        feature_count=len(config.data.features),
     )
     lag_frequency = lag_selection_frequency(lag_selection)
     lag_screen_folds = (
@@ -696,8 +862,20 @@ def run_paper_experiments(
     write_csv(stationarity_summary, root / "paper_stationarity_screen.csv")
     write_csv(date_coverage, root / "paper_forecast_date_coverage.csv")
     write_csv(aggregate_metrics, root / "paper_metrics_summary.csv")
+    write_csv(
+        _ensemble_prediction_metrics(forecasts, seed_metrics),
+        root / "paper_ensemble_metrics_summary.csv",
+    )
     write_csv(forecasts, root / "paper_forecasts.csv")
     write_csv(benchmark_metrics, root / "benchmark_metrics_comparison.csv")
+    write_csv(
+        benchmark_ensemble_metrics,
+        root / "benchmark_ensemble_metrics_comparison.csv",
+    )
+    write_csv(
+        benchmark_seed_robustness,
+        root / "benchmark_seed_robustness_metrics.csv",
+    )
     write_csv(benchmark_forecasts, root / "benchmark_forecasts_comparison.csv")
     write_csv(ablation_metrics, root / "ablation_metrics.csv")
     write_csv(ablation_forecasts, root / "ablation_forecasts.csv")
@@ -714,10 +892,11 @@ def run_paper_experiments(
         write_csv(skipped, root / "skipped_models.csv")
     write_paper_figures(
         benchmark_forecasts,
-        benchmark_metrics,
+        benchmark_ensemble_metrics,
         efficiency,
         lag_frequency,
         root,
+        seed_robustness_metrics=benchmark_seed_robustness,
         training_components=variant_results["vmd_ardl_ffnn_proposed"][0].get(
             "training_components"
         ),
@@ -726,6 +905,8 @@ def run_paper_experiments(
 
     return {
         "comparison_metrics": benchmark_metrics,
+        "ensemble_comparison_metrics": benchmark_ensemble_metrics,
+        "seed_robustness_metrics": benchmark_seed_robustness,
         "comparison_forecasts": benchmark_forecasts,
         "seed_metrics": seed_metrics,
         "aggregate_metrics": aggregate_metrics,
@@ -748,5 +929,6 @@ def run_paper_experiments(
         "vmd_ardl_select_order_ffnn": variant_results["vmd_ardl_ffnn_proposed"],
         "no_vmd_ardl_ffnn": variant_results["ardl_ffnn_no_vmd"],
         BLOCK_SUBSET_PIPELINE: variant_results[BLOCK_SUBSET_PIPELINE],
+        HARD_FFNN_PIPELINE: variant_results[HARD_FFNN_PIPELINE],
         "varnn": variant_results.get("varnn", []),
     }

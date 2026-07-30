@@ -208,6 +208,56 @@ class FFNNConfig:
 
 
 @dataclass(frozen=True)
+class HardFFNNPolicyConfig:
+    """Predeclared train-only policy for one FFNN configuration per IMF/lag spec."""
+
+    policy_version: str = "frequency_lag_balanced_v1"
+    low_frequency_max: float = 0.125
+    mid_frequency_max: float = 0.25
+    high_entropy_min: float = 0.70
+    irregular_roughness_min: float = 1.50
+    irregular_entropy_min: float = 0.65
+    heavy_input_ratio: float = 0.20
+    heavy_width_scale: float = 0.75
+    min_width: int = 4
+    max_width: int = 32
+    alpha_levels: tuple[float, ...] = (1e-4, 1e-3, 1e-2, 1e-1)
+    top_component_candidates: int = 3
+
+    def __post_init__(self) -> None:
+        if not self.policy_version:
+            raise ValueError("Hard FFNN policy_version must not be empty.")
+        if not 0 < self.low_frequency_max < self.mid_frequency_max <= 0.5:
+            raise ValueError(
+                "Hard FFNN frequency thresholds must satisfy "
+                "0 < low_frequency_max < mid_frequency_max <= 0.5."
+            )
+        if not 0 <= self.irregular_entropy_min <= self.high_entropy_min <= 1:
+            raise ValueError(
+                "Hard FFNN entropy thresholds must satisfy "
+                "0 <= irregular_entropy_min <= high_entropy_min <= 1."
+            )
+        if self.irregular_roughness_min <= 0:
+            raise ValueError("Hard FFNN irregular_roughness_min must be > 0.")
+        if not 0 < self.heavy_input_ratio < 1:
+            raise ValueError("Hard FFNN heavy_input_ratio must be between 0 and 1.")
+        if not 0 < self.heavy_width_scale <= 1:
+            raise ValueError("Hard FFNN heavy_width_scale must be in (0, 1].")
+        if self.min_width < 1 or self.max_width < self.min_width:
+            raise ValueError("Hard FFNN widths must satisfy 1 <= min_width <= max_width.")
+        if (
+            not self.alpha_levels
+            or any(value <= 0 for value in self.alpha_levels)
+            or tuple(sorted(set(self.alpha_levels))) != self.alpha_levels
+        ):
+            raise ValueError(
+                "Hard FFNN alpha_levels must be unique, positive, and ascending."
+            )
+        if self.top_component_candidates < 1:
+            raise ValueError("Hard FFNN top_component_candidates must be >= 1.")
+
+
+@dataclass(frozen=True)
 class DiagnosticsConfig:
     """Cấu hình kiểm định chẩn đoán chuỗi và phần dư."""
 
@@ -245,6 +295,7 @@ class ExperimentConfig:
     vmd: VMDConfig = field(default_factory=VMDConfig)
     ardl: ARDLSelectionConfig = field(default_factory=ARDLSelectionConfig)
     ffnn: FFNNConfig = field(default_factory=FFNNConfig)
+    hard_ffnn: HardFFNNPolicyConfig = field(default_factory=HardFFNNPolicyConfig)
     diagnostics: DiagnosticsConfig = field(default_factory=DiagnosticsConfig)
     stationarity: StationarityConfig = field(default_factory=StationarityConfig)
     train_ratio: float = 0.70

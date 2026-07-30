@@ -9,7 +9,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from vmd_ardl_ffnn.config import ARDLSelectionConfig, DataConfig, ExperimentConfig, FFNNConfig, VMDConfig
+from vmd_ardl_ffnn.config import (
+    ARDLSelectionConfig,
+    DataConfig,
+    ExperimentConfig,
+    FFNNConfig,
+    HardFFNNPolicyConfig,
+    VMDConfig,
+)
 from vmd_ardl_ffnn import decomposition
 from vmd_ardl_ffnn.decomposition import VariationalModeDecomposer
 from vmd_ardl_ffnn.experiment import VMDARDLFFNNExperiment
@@ -456,9 +463,13 @@ def test_experiment_benchmark_run() -> None:
         assert "vmd_ardl_ffnn" in result
         assert "vmd_ardl_select_order_ffnn" in result
         assert "no_vmd_ardl_ffnn" in result
+        assert "vmd_ardl_hard_config_ffnn" in result
         assert "varnn" in result
         assert set(result["ablation_metrics"]["ablation_id"]) == {"A0", "A1", "A2", "A3", "A4", "A5"}
         assert not result["dm_tests"].empty
+        assert "vmd_ardl_hard_config_ffnn" in set(
+            result["comparison_metrics"]["pipeline"]
+        )
         assert result["date_coverage"]["same_dates_for_all_models"].all()
 
 
@@ -514,7 +525,87 @@ def test_block_proposed_benchmark_run() -> None:
         assert "vmd_ardl_joint_select" in set(
             result["comparison_metrics"]["pipeline"]
         )
+        assert "vmd_ardl_hard_config_ffnn" in set(
+            result["comparison_metrics"]["pipeline"]
+        )
         assert result["date_coverage"]["same_dates_for_all_models"].all()
+
+
+def test_hard_ffnn_comparator_full_lag_grid_and_shared_selection() -> None:
+    """Hard FFNN must full-grid lag specs without a hyperparameter product."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "data.csv"
+        synthetic_data().to_csv(path, index=False)
+        seeds = (1, 2)
+        output_dir = Path(temp_dir) / "hard_ffnn"
+        config = ExperimentConfig(
+            data=DataConfig(target="Y", features=("X1", "X2")),
+            vmd=VMDConfig(modes=2, max_iterations=20),
+            ardl=ARDLSelectionConfig(
+                max_target_lag=2,
+                max_exog_lag=3,
+                top_n=3,
+                target_lag_strategy="ardl_select_order",
+                exog_lag_strategy="ardl_screen",
+                lag_spec_strategy="full_product",
+            ),
+            ffnn=FFNNConfig(
+                hidden_units_candidates=(3,),
+                alpha_grid=(1e-3,),
+                seed_grid=seeds,
+                activation_grid=("tanh",),
+                learning_rate_grid=(1e-3,),
+                max_iter=5,
+                min_val=8,
+            ),
+            hard_ffnn=HardFFNNPolicyConfig(top_component_candidates=2),
+            output_dir=output_dir,
+        )
+        result = VMDARDLFFNNExperiment(
+            config
+        ).run_hard_ffnn_comparator(
+            path,
+            reporting_seeds=seeds,
+        )
+        assignments = result["hard_ffnn_policy_assignments"]
+        candidates = result["component_search_results"]
+        rankings = result["component_signature_rankings"]
+        assert assignments.groupby("component").size().eq(9).all()
+        for feature_lags in assignments["exog_lags"]:
+            assert set(feature_lags) == {"X1", "X2"}
+            for lags in feature_lags.values():
+                assert tuple(lags) == tuple(range(1, max(lags) + 1))
+        assert candidates.groupby("component").size().eq(9 * len(seeds)).all()
+        assert candidates["ffnn_config_source"].eq(
+            "train_only_frequency_lag_policy"
+        ).all()
+        assert candidates["selected_for_hyperparam_search"].eq(False).all()
+        for _, signature_rows in candidates.groupby(
+            ["component", "component_signature_id"]
+        ):
+            assert signature_rows["seed"].nunique() == len(seeds)
+            assert signature_rows["hidden_layer_sizes"].map(tuple).nunique() == 1
+            assert signature_rows["alpha"].nunique() == 1
+            assert signature_rows["activation"].nunique() == 1
+            assert signature_rows["learning_rate_init"].nunique() == 1
+        assert rankings.groupby("component")[
+            "shortlisted_for_reconstructed_search"
+        ].sum().eq(2).all()
+        assert len(result["search_results"]) <= 2 ** 3
+        assert result["search_results"].iloc[0]["selected"]
+        assert set(result["final_metrics"]["seed"]) == set(seeds)
+        assert result["best_component_models"]["selection_seed_count"].eq(
+            len(seeds)
+        ).all()
+        assert (
+            output_dir / "hard_ffnn_imf_descriptors.csv"
+        ).exists()
+        assert (
+            output_dir / "hard_ffnn_policy_config.csv"
+        ).exists()
+        assert (
+            output_dir / "hard_ffnn_shared_selection.csv"
+        ).exists()
 
 
 def test_block_subset_comparator_locks_mean_seed_winner() -> None:

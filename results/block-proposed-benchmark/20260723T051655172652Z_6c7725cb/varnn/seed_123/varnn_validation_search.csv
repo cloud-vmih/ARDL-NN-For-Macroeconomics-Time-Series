@@ -1,0 +1,2 @@
+hidden_units,activation,learning_rate,Val RMSE,selected
+32,sigmoid,0.01,,True

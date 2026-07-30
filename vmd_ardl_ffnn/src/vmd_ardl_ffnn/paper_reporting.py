@@ -144,16 +144,34 @@ def _save_accuracy_runtime_plot(
     efficiency: pd.DataFrame,
     output_dir: Path,
 ) -> None:
-    test = metrics[metrics["split"].eq("test")][["pipeline", "RMSE_mean"]]
-    runtime = efficiency.groupby("pipeline", as_index=False)["runtime_seconds"].mean()
+    rmse_column = "RMSE" if "RMSE" in metrics else "RMSE_mean"
+    is_seed_distribution = rmse_column == "RMSE_mean"
+    test = metrics[metrics["split"].eq("test")][["pipeline", rmse_column]]
+    runtime = efficiency.groupby("pipeline", as_index=False)["runtime_seconds"].sum()
     merged = test.merge(runtime, on="pipeline", how="inner")
     if merged.empty:
         return
     fig, ax = plt.subplots(figsize=(10, 7))
-    ax.scatter(merged["runtime_seconds"], merged["RMSE_mean"], s=55)
+    ax.scatter(merged["runtime_seconds"], merged[rmse_column], s=55)
     for _, row in merged.iterrows():
-        ax.annotate(row["pipeline"], (row["runtime_seconds"], row["RMSE_mean"]), fontsize=8)
-    ax.set(title="Accuracy–runtime trade-off", xlabel="Mean runtime (seconds)", ylabel="Test RMSE")
+        ax.annotate(
+            row["pipeline"],
+            (row["runtime_seconds"], row[rmse_column]),
+            fontsize=8,
+        )
+    ax.set(
+        title=(
+            "Mean-seed accuracy–runtime trade-off"
+            if is_seed_distribution
+            else "Ensemble accuracy–runtime trade-off"
+        ),
+        xlabel="Total runtime across reporting seeds (seconds)",
+        ylabel=(
+            "Mean test RMSE across reporting seeds"
+            if is_seed_distribution
+            else "Ensemble test RMSE"
+        ),
+    )
     ax.grid(alpha=0.25)
     fig.tight_layout()
     fig.savefig(output_dir / "paper_accuracy_runtime.png", dpi=180)
@@ -226,6 +244,7 @@ def write_paper_figures(
     lag_frequency: pd.DataFrame,
     output_dir: str | Path,
     *,
+    seed_robustness_metrics: pd.DataFrame | None = None,
     training_components: dict[str, pd.DataFrame] | None = None,
     target: str | None = None,
     proposed_pipeline: str = "vmd_ardl_ffnn_proposed",
@@ -237,7 +256,15 @@ def write_paper_figures(
     root = Path(output_dir)
     _save_forecast_plot(plt, benchmark_forecasts, root)
     _save_error_distribution(plt, benchmark_forecasts, root)
-    _save_uncertainty_plot(plt, benchmark_metrics, root)
+    _save_uncertainty_plot(
+        plt,
+        (
+            benchmark_metrics
+            if seed_robustness_metrics is None
+            else seed_robustness_metrics
+        ),
+        root,
+    )
     _save_accuracy_runtime_plot(plt, benchmark_metrics, efficiency, root)
     _save_lag_heatmap(
         plt,

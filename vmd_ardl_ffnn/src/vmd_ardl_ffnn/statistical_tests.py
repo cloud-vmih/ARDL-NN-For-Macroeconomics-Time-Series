@@ -149,6 +149,7 @@ def pairwise_dm_tests(
         rows.append(
             {
                 "split": split,
+                "forecast_estimand": "ensemble_mean_prediction",
                 "first_model": first_model,
                 "second_model": second_model,
                 **result,

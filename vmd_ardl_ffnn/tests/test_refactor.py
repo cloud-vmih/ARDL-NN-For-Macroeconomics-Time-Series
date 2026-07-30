@@ -9,10 +9,19 @@ import pandas as pd
 import pytest
 
 from vmd_ardl_ffnn.artifacts import prepare_run_directory, write_csv, write_manifest
-from vmd_ardl_ffnn.config import ARDLSelectionConfig, DataConfig, ExperimentConfig
+from vmd_ardl_ffnn.config import (
+    ARDLSelectionConfig,
+    DataConfig,
+    ExperimentConfig,
+    HardFFNNPolicyConfig,
+)
 from vmd_ardl_ffnn.data import GenericDataLoader
 from vmd_ardl_ffnn.experiment import VMDARDLFFNNExperiment
 from vmd_ardl_ffnn.features import LagSpec
+from vmd_ardl_ffnn.hard_ffnn_policy import (
+    HardFFNNPolicy,
+    describe_target_imfs,
+)
 from vmd_ardl_ffnn.lag_selection import ARDLOrderSelector
 from vmd_ardl_ffnn.metrics import evaluate_forecast
 from vmd_ardl_ffnn.models.ffnn import NumpyFFNNRegressor
@@ -47,9 +56,13 @@ def test_runner_profiles_use_sequential_proposed_and_keep_joint_comparator() -> 
     )
     select_order = runner.build_experiment_config("vmd-ardl-select-order", Path("out"))
     joint = runner.build_experiment_config("vmd-ardl-joint-select", Path("out"))
+    hard = runner.build_experiment_config("vmd-ardl-hard-ffnn", Path("out"))
     assert proposed.ardl.target_lag_strategy == "ardl_select_order"
     assert select_order.ardl.target_lag_strategy == "ardl_select_order"
     assert joint.ardl.target_lag_strategy == "ardl_select_order_joint"
+    assert hard.ardl.target_lag_strategy == "ardl_select_order"
+    assert hard.ardl.lag_spec_strategy == "full_product"
+    assert hard.hard_ffnn.policy_version == "frequency_lag_balanced_v1"
     assert proposed.ffnn.learning_rate_grid == (0.001,)
     assert block_proposed.ffnn.learning_rate_grid == (0.01, 0.001)
     assert proposed.ffnn.lag_screen_folds == 3
@@ -81,6 +94,67 @@ def test_runner_exposes_separate_block_proposed_pipeline() -> None:
     runner = _runner_module()
     args = runner.parse_args(["--pipeline", "block-proposed-benchmark"])
     assert args.pipeline == "block-proposed-benchmark"
+
+
+def test_runner_exposes_hard_ffnn_pipeline() -> None:
+    runner = _runner_module()
+    args = runner.parse_args(["--pipeline", "vmd-ardl-hard-ffnn"])
+    assert args.pipeline == "vmd-ardl-hard-ffnn"
+
+
+def test_hard_ffnn_policy_maps_frequency_entropy_and_lag_load() -> None:
+    index = pd.date_range("2020-01-01", periods=64, freq="MS")
+    time = np.arange(64)
+    rng = np.random.default_rng(11)
+    components = {
+        "VMD1": pd.DataFrame(
+            {"Y": np.sin(2 * np.pi * time / 16)},
+            index=index,
+        ),
+        "VMD2": pd.DataFrame(
+            {"Y": np.sin(2 * np.pi * time / 6)},
+            index=index,
+        ),
+        "VMD3": pd.DataFrame(
+            {"Y": np.sin(2 * np.pi * time / 3)},
+            index=index,
+        ),
+        "RES": pd.DataFrame({"Y": rng.normal(size=64)}, index=index),
+    }
+    descriptors = describe_target_imfs(components, "Y")
+    policy = HardFFNNPolicy(HardFFNNPolicyConfig())
+    decisions = {
+        str(row["component"]): policy.decide(
+            row,
+            input_dimension=20,
+            max_lag=12,
+            effective_train_samples=100,
+        )
+        for _, row in descriptors.iterrows()
+    }
+    assert decisions["VMD1"].regime == "low"
+    assert decisions["VMD1"].hidden_layer_sizes == (10,)
+    assert decisions["VMD1"].activation == "tanh"
+    assert decisions["VMD1"].learning_rate_init == 0.01
+    assert decisions["VMD2"].regime == "mid"
+    assert decisions["VMD2"].hidden_layer_sizes == (20, 10)
+    assert decisions["VMD3"].regime == "high_structured"
+    assert decisions["VMD3"].hidden_layer_sizes == (10, 5)
+    assert decisions["RES"].regime == "irregular"
+    assert decisions["RES"].activation == "relu"
+    assert decisions["RES"].alpha == 0.1
+
+    descriptor = descriptors.query("component == 'VMD2'").iloc[0]
+    heavy = policy.decide(
+        descriptor,
+        input_dimension=21,
+        max_lag=12,
+        effective_train_samples=100,
+    )
+    assert heavy.heavy_lag_load
+    assert heavy.hidden_layer_sizes == (16, 9)
+    assert heavy.alpha == 0.1
+    assert heavy.policy_version == "frequency_lag_balanced_v1"
 
 
 def test_block_subset_fast_screen_keeps_exactly_four_best_specs(monkeypatch) -> None:
@@ -286,6 +360,7 @@ def test_dm_outputs_holm_adjustment_and_block_bootstrap_interval() -> None:
                 )
     result = pairwise_dm_tests(pd.DataFrame(rows))
     assert len(result) == 3
+    assert result["forecast_estimand"].eq("ensemble_mean_prediction").all()
     assert result["holm_adjusted_pvalue"].between(0.0, 1.0).all()
     assert result["paired_mean_loss_difference_ci95_lower"].notna().all()
     assert np.allclose(holm_adjust(np.array([0.01, 0.04, 0.03])), [0.03, 0.06, 0.06])
@@ -401,10 +476,63 @@ def test_paper_orchestrator_builds_benchmark_ablation_and_dm_tables(
             block_config,
         )
 
+    def fake_hard_ffnn(csv_path, config, *, seeds, output_dir):
+        metric_frames = []
+        forecast_frames = []
+        best_rows = []
+        for seed in seeds:
+            metrics, forecasts = frames(
+                paper.HARD_FFNN_PIPELINE,
+                0.017 + seed / 1000.0,
+            )
+            metrics["model"] = paper.HARD_FFNN_MODEL
+            metrics["seed"] = seed
+            forecasts["seed"] = seed
+            metric_frames.append(metrics)
+            forecast_frames.append(forecasts)
+            best_rows.append(
+                {
+                    "component": "raw",
+                    "seed": seed,
+                    "target_lags": (1,),
+                    "exog_lags": {"X": (1,)},
+                    "lag_spec": "target:[1] | X:[1]",
+                }
+            )
+        hard_config = replace(
+            config,
+            output_dir=output_dir,
+            ardl=replace(
+                config.ardl,
+                target_lag_strategy="ardl_select_order",
+                exog_lag_strategy="ardl_screen",
+                lag_spec_strategy="full_product",
+                top_n=3,
+            ),
+            ffnn=replace(config.ffnn, seed_grid=tuple(seeds)),
+        )
+        result = {
+            "ardl_orders": pd.DataFrame({"feature": ["__ffnn_combo__"]}),
+            "best_component_models": pd.DataFrame(best_rows),
+            "component_search_results": pd.DataFrame(
+                {"candidate_id": range(len(seeds))}
+            ),
+            "hard_ffnn_policy_assignments": pd.DataFrame(
+                {"lag_spec": ["target:[1] | X:[1]"]}
+            ),
+        }
+        return (
+            result,
+            pd.concat(metric_frames, ignore_index=True),
+            pd.concat(forecast_frames, ignore_index=True),
+            hard_config,
+        )
+
     monkeypatch.setattr(paper, "run_naive_baseline", fake_naive)
     monkeypatch.setattr(paper, "run_linear_ardl_baseline", fake_ardl)
     monkeypatch.setattr(paper, "_run_neural_variant", fake_neural)
     monkeypatch.setattr(paper, "_run_block_subset_mean_seed_variant", fake_block_subset)
+    monkeypatch.setattr(paper, "_run_hard_ffnn_variant", fake_hard_ffnn)
     csv_path = tmp_path / "study.csv"
     pd.DataFrame(
         {
@@ -426,7 +554,23 @@ def test_paper_orchestrator_builds_benchmark_ablation_and_dm_tables(
     assert not result["dm_tests"].empty
     assert not result["lag_selection"].empty
     assert paper.BLOCK_SUBSET_PIPELINE in set(result["comparison_metrics"]["pipeline"])
+    assert paper.HARD_FFNN_PIPELINE in set(
+        result["comparison_metrics"]["pipeline"]
+    )
     assert paper.BLOCK_SUBSET_PIPELINE not in set(result["ablation_metrics"]["pipeline"])
+    assert paper.HARD_FFNN_PIPELINE not in set(
+        result["ablation_metrics"]["pipeline"]
+    )
+    assert result["comparison_metrics"]["estimand"].eq(
+        "distribution_of_per_seed_metrics"
+    ).all()
+    assert result["ensemble_comparison_metrics"]["estimand"].eq(
+        "ensemble_mean_prediction"
+    ).all()
+    assert result["seed_robustness_metrics"]["estimand"].eq(
+        "distribution_of_per_seed_metrics"
+    ).all()
+    assert result["seed_robustness_metrics"]["RMSE_count"].max() == 2
     block_setting = result["settings"].query(
         "pipeline == @paper.BLOCK_SUBSET_PIPELINE"
     ).iloc[0]
@@ -434,8 +578,27 @@ def test_paper_orchestrator_builds_benchmark_ablation_and_dm_tables(
     assert block_setting["selection_seed_aggregation"] == (
         "mean_reconstructed_level_validation_across_reporting_seeds"
     )
+    hard_setting = result["settings"].query(
+        "pipeline == @paper.HARD_FFNN_PIPELINE"
+    ).iloc[0]
+    assert hard_setting["ffnn_config_source"] == (
+        "train_only_frequency_lag_policy"
+    )
+    assert hard_setting["theoretical_lag_spec_count_per_component"] == 3
     assert (tmp_path / "paper" / "paper_experiment_settings.csv").exists()
     assert (tmp_path / "paper" / "efficiency_summary.csv").exists()
+    assert (
+        tmp_path / "paper" / "benchmark_ensemble_metrics_comparison.csv"
+    ).exists()
+    assert (
+        tmp_path / "paper" / "benchmark_seed_robustness_metrics.csv"
+    ).exists()
+    primary = pd.read_csv(
+        tmp_path / "paper" / "benchmark_metrics_comparison.csv"
+    )
+    assert primary["estimand"].eq(
+        "distribution_of_per_seed_metrics"
+    ).all()
 
 
 def test_block_proposed_orchestrator_builds_shared_benchmark_and_a0_a7(
@@ -526,6 +689,19 @@ def test_block_proposed_orchestrator_builds_shared_benchmark_and_a0_a7(
         metrics, forecasts = frames(kwargs["pipeline"], kwargs["model"], 0.015)
         return fake_result(), metrics, forecasts, replace(config, output_dir=kwargs["output_dir"])
 
+    def fake_hard_ffnn(csv_path, config, **kwargs):
+        metrics, forecasts = frames(
+            study.HARD_FFNN_PIPELINE,
+            study.HARD_FFNN_MODEL,
+            0.017,
+        )
+        return (
+            fake_result(),
+            metrics,
+            forecasts,
+            replace(config, output_dir=kwargs["output_dir"]),
+        )
+
     def fake_per_seed_block(csv_path, config, **kwargs):
         metrics, forecasts = frames(kwargs["pipeline"], kwargs["model"], 0.018)
         results = [fake_result(), fake_result()]
@@ -543,6 +719,7 @@ def test_block_proposed_orchestrator_builds_shared_benchmark_and_a0_a7(
     monkeypatch.setattr(study, "_run_shared_vmd_variant", fake_shared_vmd)
     monkeypatch.setattr(study, "_run_shared_no_vmd_variant", fake_shared_no_vmd)
     monkeypatch.setattr(study, "_run_shared_block_variant", fake_shared_block)
+    monkeypatch.setattr(study, "_run_hard_ffnn_variant", fake_hard_ffnn)
     monkeypatch.setattr(study, "_run_per_seed_block_variant", fake_per_seed_block)
     monkeypatch.setattr(study, "_run_varnn_shared_mean_seed", unavailable_varnn)
     monkeypatch.setattr(study, "write_paper_figures", lambda *args, **kwargs: None)
@@ -579,6 +756,19 @@ def test_block_proposed_orchestrator_builds_shared_benchmark_and_a0_a7(
     assert study.JOINT_SELECT_PIPELINE in set(
         result["comparison_metrics"]["pipeline"]
     )
+    assert study.HARD_FFNN_PIPELINE in set(
+        result["comparison_metrics"]["pipeline"]
+    )
+    assert result["comparison_metrics"]["estimand"].eq(
+        "distribution_of_per_seed_metrics"
+    ).all()
+    assert result["ensemble_comparison_metrics"]["estimand"].eq(
+        "ensemble_mean_prediction"
+    ).all()
+    assert result["seed_robustness_metrics"]["estimand"].eq(
+        "distribution_of_per_seed_metrics"
+    ).all()
+    assert result["seed_robustness_metrics"]["RMSE_count"].max() == len(seeds)
     assert result["date_coverage"]["same_dates_for_all_models"].all()
     assert result["settings"]["ablation_schema_version"].eq(
         study.ABLATION_SCHEMA_VERSION
@@ -594,13 +784,64 @@ def test_block_proposed_orchestrator_builds_shared_benchmark_and_a0_a7(
     assert joint_setting["selection_protocol"] == (
         "mean_reconstructed_level_validation_across_reporting_seeds"
     )
+    hard_setting = result["settings"].query(
+        "pipeline == @study.HARD_FFNN_PIPELINE"
+    ).iloc[0]
+    assert hard_setting["ffnn_config_source"] == (
+        "train_only_frequency_lag_policy"
+    )
     assert (tmp_path / "block_proposed" / "ablation_metrics.csv").exists()
     assert (tmp_path / "block_proposed" / "benchmark_metrics_comparison.csv").exists()
+    assert (
+        tmp_path
+        / "block_proposed"
+        / "benchmark_ensemble_metrics_comparison.csv"
+    ).exists()
+    assert (
+        tmp_path
+        / "block_proposed"
+        / "benchmark_seed_robustness_metrics.csv"
+    ).exists()
+    primary = pd.read_csv(
+        tmp_path
+        / "block_proposed"
+        / "benchmark_metrics_comparison.csv"
+    )
+    assert primary["estimand"].eq(
+        "distribution_of_per_seed_metrics"
+    ).all()
 
 
 def test_directional_accuracy_uses_previous_actual() -> None:
     metrics = evaluate_forecast([10.0, 12.0, 11.0], [10.0, 11.0, 11.5])
     assert metrics["Directional_Accuracy"] == 100.0
+
+
+def test_ensemble_metrics_average_predictions_before_scoring() -> None:
+    from vmd_ardl_ffnn.paper_experiments import _ensemble_prediction_metrics
+
+    dates = pd.date_range("2024-01-01", periods=2, freq="MS")
+    forecasts = pd.DataFrame(
+        {
+            "pipeline": ["model"] * 4,
+            "split": ["test"] * 4,
+            "scale": ["level"] * 4,
+            "date": list(dates) * 2,
+            "actual": [10.0] * 4,
+            "predicted": [11.0, 11.0, 9.0, 9.0],
+            "seed": [1, 1, 2, 2],
+        }
+    )
+    seed_metrics = pd.DataFrame(
+        {
+            "pipeline": ["model", "model"],
+            "model": ["Model", "Model"],
+            "target": ["Y", "Y"],
+        }
+    )
+    result = _ensemble_prediction_metrics(forecasts, seed_metrics)
+    assert result.iloc[0]["ensemble_member_count"] == 2
+    assert result.iloc[0]["RMSE"] == 0.0
 
 
 def test_ffnn_restores_weights_that_match_best_recorded_loss() -> None:

@@ -1,0 +1,2 @@
+policy_version,low_frequency_max,mid_frequency_max,high_entropy_min,irregular_roughness_min,irregular_entropy_min,heavy_input_ratio,heavy_width_scale,min_width,max_width,alpha_levels,top_component_candidates
+frequency_lag_balanced_v1,0.125,0.25,0.7,1.5,0.65,0.2,0.75,4,32,"(0.0001, 0.001, 0.01, 0.1)",3

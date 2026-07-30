@@ -94,6 +94,7 @@ mean/std/median/count trên test. Không chọn “best seed”.
 | B5 | `varnn` | Multivariate neural baseline, shared selection |
 | B6 | `vmd_ardl_sequential_screen` | Closest previous sequential workflow, shared selection |
 | B7 | `vmd_ardl_joint_select` | `ardl_select_order` chọn target/exogenous lags đồng thời, shared selection |
+| B8 | `vmd_ardl_hard_config_ffnn` | Full-product top-3 exog orders; train-only frequency/lag hard FFNN config |
 | P | `vmd_ardl_block_subset_proposed` | A7 two-stage Proposed |
 
 VARNN chỉ được xem là đã có trong benchmark khi `paper_experiment_settings.csv`
@@ -181,9 +182,12 @@ final learning-rate grid trong fast screen.
 
 Main benchmark dùng:
 
+- primary RMSE/MAE/MAPE/DA là mean/std/median/count của metric tính riêng
+  từng reporting seed;
 - Diebold–Mariano test trên common test dates;
 - squared-error loss, horizon 1;
-- ensemble-mean prediction qua reporting seeds cho stochastic models;
+- secondary ensemble-mean prediction qua reporting seeds cho stochastic models;
+- DM/Holm dùng chuỗi ensemble-mean prediction và phải ghi rõ estimand này;
 - Holm correction cho pairwise comparisons;
 - moving-block bootstrap 95% CI cho paired mean loss difference.
 
@@ -194,6 +198,7 @@ Trước khi diễn giải DM/Holm, kiểm tra
 
 - Proposed versus sequential-screen B6;
 - Proposed versus joint SelectOrder B7;
+- Proposed versus hard-config FFNN B8, kèm runtime và fit count;
 - Proposed versus ARDL–FFNN no VMD B4;
 - Proposed versus standalone ARDL B1;
 - Proposed versus VARNN B5;
@@ -222,7 +227,9 @@ kết quả thuận lợi.
 
 Main outputs:
 
-- `benchmark_metrics_comparison.csv`;
+- `benchmark_metrics_comparison.csv` (primary per-seed mean/std/median/count);
+- `benchmark_ensemble_metrics_comparison.csv` (secondary ensemble metrics);
+- `benchmark_seed_robustness_metrics.csv` (explicit primary-table alias);
 - `benchmark_forecasts_comparison.csv`;
 - `paper_seed_metrics.csv`;
 - `paper_metrics_summary.csv`;

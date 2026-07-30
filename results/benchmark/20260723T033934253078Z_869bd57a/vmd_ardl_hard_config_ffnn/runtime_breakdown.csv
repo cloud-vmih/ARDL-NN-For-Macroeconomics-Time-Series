@@ -1,0 +1,2 @@
+ardl_selection_seconds,vmd_cache_seconds,ffnn_search_seconds,refit_forecast_seconds,total_runtime_seconds,evaluated_ffnn_fits,hard_policy_assignments,reconstructed_combinations
+15.672475170000325,1.1952940020000824,228.37336259200038,3.8554535089997444,251.27411617899998,1620,324,81

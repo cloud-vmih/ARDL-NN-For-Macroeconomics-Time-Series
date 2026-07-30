@@ -1,0 +1,2 @@
+component,rank,lag_spec,nobs,AIC,BIC,HQIC,resid_Ljung_Box_lag12_stat,resid_Ljung_Box_lag12_pvalue,resid_ARCH_LM_stat,resid_ARCH_LM_pvalue,resid_Jarque_Bera_stat,resid_Jarque_Bera_pvalue,resid_skewness,resid_kurtosis
+raw_no_vmd,1,"target:[1, 12] | PCE:[1], US_Retail:[1], USD_VND:[1], Import_CN:[1]",140,-103.00632125296328,-79.47318187208884,-93.44315725048428,19.266276904175882,0.08230185235040155,14.851138667835642,0.2496784190630461,293.98215682524267,1.4540714802315864e-64,0.044423093275515975,10.098524320249734

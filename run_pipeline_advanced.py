@@ -41,6 +41,7 @@ PIPELINE_CHOICES = (
     "sensitivity",
     "vmd-ardl-select-order",
     "vmd-ardl-joint-select",
+    "vmd-ardl-hard-ffnn",
 )
 
 
@@ -75,7 +76,11 @@ def build_experiment_config(pipeline: str, output_dir: Path) -> ExperimentConfig
         ),
         ardl=ARDLSelectionConfig(
             target_lag_strategy=strategy_for_pipeline(pipeline),
-            lag_spec_strategy="staged",
+            lag_spec_strategy=(
+                "full_product"
+                if pipeline == "vmd-ardl-hard-ffnn"
+                else "staged"
+            ),
             max_target_lag=12,
             max_exog_lag=6,
             top_n=3,
@@ -196,6 +201,28 @@ def run_pipeline(
             ),
             "comparison_metrics",
         )
+    if pipeline == "vmd-ardl-hard-ffnn":
+        hard_config = replace(
+            config,
+            ardl=replace(
+                config.ardl,
+                ic="aic",
+                target_lag_strategy="ardl_select_order",
+                exog_lag_strategy="ardl_screen",
+                lag_spec_strategy="full_product",
+                top_n=3,
+            ),
+            ffnn=replace(config.ffnn, seed_grid=paper_seeds),
+        )
+        return (
+            VMDARDLFFNNExperiment(
+                hard_config
+            ).run_hard_ffnn_comparator(
+                csv_path,
+                reporting_seeds=paper_seeds,
+            ),
+            "final_metrics",
+        )
     if pipeline == "sensitivity":
         from vmd_ardl_ffnn.sensitivity_experiments import run_sensitivity_experiments
 
@@ -208,16 +235,35 @@ def run_pipeline(
     raise ValueError(f"Unsupported pipeline: {pipeline}")
 
 
-def print_metrics_summary(results, metric_key: str) -> None:
+def print_metrics_summary(
+    results,
+    metric_key: str,
+    *,
+    title: str = "Metrics summary",
+) -> None:
     if metric_key not in results:
         return
     frame = results[metric_key]
     columns = [
         col
-        for col in ("model", "split", "scale", "RMSE_mean", "RMSE_std", "MAE_mean", "MAE_std", "MAPE_mean", "Directional_Accuracy")
+        for col in (
+            "model",
+            "seed",
+            "split",
+            "scale",
+            "RMSE",
+            "MAE",
+            "MAPE",
+            "RMSE_mean",
+            "RMSE_std",
+            "MAE_mean",
+            "MAE_std",
+            "MAPE_mean",
+            "Directional_Accuracy",
+        )
         if col in frame.columns
     ]
-    print("\nMetrics summary:")
+    print(f"\n{title}:")
     print(frame[columns].to_string(index=False))
 
 
@@ -232,7 +278,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         nargs="+",
         type=int,
         default=(7, 42, 123, 2024, 2025),
-        help="Reporting seeds used by benchmark/ablation and sensitivity studies.",
+        help=(
+            "Reporting seeds used by benchmark/ablation, the standalone hard-FFNN "
+            "comparator, and sensitivity studies."
+        ),
     )
     parser.add_argument(
         "--skip-varnn",
@@ -262,6 +311,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     provisional = build_experiment_config(args.pipeline, Path("results"))
+    if args.pipeline == "vmd-ardl-hard-ffnn":
+        provisional = replace(
+            provisional,
+            ffnn=replace(
+                provisional.ffnn,
+                seed_grid=tuple(args.paper_seeds),
+            ),
+        )
     try:
         run_dir = prepare_run_directory(args.output_root, args.pipeline, provisional, args.run_id)
     except FileExistsError as exc:
@@ -271,7 +328,13 @@ def main(argv: list[str] | None = None) -> int:
     varnn_config = build_varnn_config()
     run_metadata = {
         "paper_seeds": tuple(args.paper_seeds)
-        if args.pipeline in {"benchmark", "block-proposed-benchmark", "sensitivity"}
+        if args.pipeline
+        in {
+            "benchmark",
+            "block-proposed-benchmark",
+            "sensitivity",
+            "vmd-ardl-hard-ffnn",
+        }
         else tuple(),
         "include_varnn": (
             not args.skip_varnn
@@ -285,7 +348,8 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "selection_seed_aggregation": (
             "shared_mean_validation_across_reporting_seeds"
-            if args.pipeline == "block-proposed-benchmark"
+            if args.pipeline
+            in {"block-proposed-benchmark", "vmd-ardl-hard-ffnn"}
             else None
         ),
         "ablation_schema_version": (
@@ -306,7 +370,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Pipeline: {args.pipeline}")
     print(f"Target-lag strategy: {config.ardl.target_lag_strategy}")
     print(f"Forecast protocol: {config.forecast_protocol}")
-    if args.pipeline in {"benchmark", "block-proposed-benchmark", "sensitivity"}:
+    if args.pipeline in {
+        "benchmark",
+        "block-proposed-benchmark",
+        "sensitivity",
+        "vmd-ardl-hard-ffnn",
+    }:
         print(f"Paper seeds: {tuple(args.paper_seeds)}")
     if args.pipeline in {"benchmark", "block-proposed-benchmark"}:
         print(f"Include VARNN: {not args.skip_varnn}")
@@ -325,7 +394,21 @@ def main(argv: list[str] | None = None) -> int:
                 "-", "_"
             ),
         )
-        print_metrics_summary(results, metric_key)
+        print_metrics_summary(
+            results,
+            metric_key,
+            title=(
+                "Ensemble mean-prediction metrics"
+                if args.pipeline in {"benchmark", "block-proposed-benchmark"}
+                else "Metrics summary"
+            ),
+        )
+        if "seed_robustness_metrics" in results:
+            print_metrics_summary(
+                results,
+                "seed_robustness_metrics",
+                title="Per-seed robustness metrics (mean/std/median/count)",
+            )
         write_manifest(
             run_dir,
             pipeline=args.pipeline,

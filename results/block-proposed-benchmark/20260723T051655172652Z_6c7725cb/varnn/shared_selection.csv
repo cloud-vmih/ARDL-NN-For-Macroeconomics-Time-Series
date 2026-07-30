@@ -1,0 +1,3 @@
+mean_seed_rank,hidden_units,activation,learning_rate,mean_val_level_RMSE,std_val_level_RMSE,mean_val_level_MAE,mean_val_level_MAPE,seed_count,selected,selection_protocol
+1,32,sigmoid,0.01,1022503.9003778292,28953.91400183161,733998.787964319,9.424420652627848,5,True,mean_level_validation_across_reporting_seeds
+2,32,sigmoid,0.001,1059066.4317647782,29647.56101950648,740320.2223404867,9.516765787344479,5,False,mean_level_validation_across_reporting_seeds

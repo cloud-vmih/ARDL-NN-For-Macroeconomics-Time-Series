@@ -39,6 +39,11 @@ cd /home/cloud/cloud/DA/Project
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline block-proposed-benchmark \
   --paper-seeds 7 42 123 2024 2025
+
+# Comparator hard-config: grid lag combinations, không grid FFNN hyperparameters
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline vmd-ardl-hard-ffnn \
+  --paper-seeds 7 42 123 2024 2025
 ```
 
 Mỗi lần chạy bằng entrypoint này tạo một thư mục riêng:
@@ -215,11 +220,12 @@ dùng để chẩn đoán.
 | `vmd-ardl-select-order` | Proposed VMD + sequential ARDL target/exog + FFNN; default |
 | `vmd` | Cùng target-lag strategy với proposed, tên rút gọn |
 | `vmd-ardl-joint-select` | Joint ARDL target/exogenous comparator |
+| `vmd-ardl-hard-ffnn` | Full-product top-3 ARDL lag search; một train-only frequency/lag FFNN config cho mỗi candidate |
 | `no-vmd` | Sequential ARDL–FFNN trực tiếp trên target, không VMD |
 | `both` | So sánh VMD và no-VMD |
 | `varnn` | Chạy VARNN độc lập |
 | `model-comparison` | So sánh proposed VMD–ARDL–FFNN với VARNN |
-| `benchmark` | Full benchmark B0–B6, proposed, ablation A0–A5, DM/Holm |
+| `benchmark` | Full benchmark B0–B7, proposed, ablation A0–A5, DM/Holm |
 | `block-proposed-benchmark` | Study riêng lấy block-subset two-stage làm Proposed, shared mean-seed benchmarks, ablation A0–A7, DM/Holm |
 | `sensitivity` | Robustness grid one-factor-at-a-time cho proposed model |
 
@@ -275,6 +281,109 @@ order, còn `vmd_ardl_joint_select` dùng `ardl_select_order` chọn target và
 exogenous lags đồng thời. Cả hai đều khóa một FFNN winner bằng mean
 reconstructed-level validation RMSE qua reporting seeds.
 
+Benchmark còn có B8 `vmd_ardl_hard_config_ffnn`. B8 giữ nguyên ARDL target-first
+workflow, lấy top 3 distributed-lag orders/feature và grid toàn bộ tích Cartesian
+(tối đa 81 specs/component với 4 features). Mỗi spec chỉ nhận một FFNN config
+được quyết định từ train-only IMF frequency, spectral entropy, roughness và lag
+load; không chạy architecture/LR/alpha/activation grid. Sau đó vẫn giữ top 3
+candidates/component và chọn combination cuối bằng mean reconstructed-level
+validation RMSE qua reporting seeds.
+
+### Hard-config VMD–ARDL–FFNN hoạt động như thế nào?
+
+Trong source, tên chính xác của comparator “VMD–ARDL–NN hard-config” là
+`vmd_ardl_hard_config_ffnn`, vì neural model hiện được triển khai là FFNN. Nó
+không chọn architecture/LR/alpha/activation bằng validation grid. Quy trình là:
+
+1. Chỉ dùng train split để stationarity-transform và VMD target thành các
+   component `VMD1...VMDK` cùng `RES`.
+2. ARDL SelectOrder khóa target lag; ARDL/AIC lấy top 3 distributed-lag orders
+   cho từng exogenous variable. Full Cartesian product tạo tối đa
+   `3^number_of_features` lag specs cho mỗi component.
+3. Mỗi target component được mô tả bằng FFT train-only: dominant frequency,
+   spectral centroid, bandwidth, normalized spectral entropy, roughness và
+   energy ratio.
+4. Với từng lag spec, policy tính input dimension `D`, maximum lag và số mẫu
+   train hiệu dụng `N_eff`, rồi gán đúng **một** FFNN configuration.
+5. Configuration cố định đó được fit ở mọi reporting seed. Validation chỉ xếp
+   hạng lag/component candidates và reconstructed combinations; nó không tune
+   hard policy.
+6. Top 3 candidates/component được kết hợp; một shared winner được chọn bằng
+   mean reconstructed-level validation RMSE qua seeds, sau đó refit riêng từng
+   seed trên train + validation để dự báo test.
+
+Regime được xét theo thứ tự sau:
+
+- `irregular`: component là `RES`, hoặc entropy `>= 0.70`, hoặc đồng thời
+  roughness `>= 1.50` và entropy `>= 0.65`;
+- `low`: spectral centroid `< 0.125`;
+- `mid`: spectral centroid `< 0.25`;
+- `high_structured`: các trường hợp còn lại.
+
+Hard policy mặc định:
+
+| IMF regime | Architecture theo input dimension `D` | Activation | LR | Alpha |
+| --- | --- | --- | ---: | ---: |
+| Low frequency | `(0.5D,)` | tanh | `0.01` | `0.001` |
+| Mid frequency | `(D, 0.5D)` | tanh | `0.001` | `0.01` |
+| High structured | `(0.5D, 0.25D)` | tanh | `0.001` | `0.01` |
+| Irregular/RES | `(0.25D,)` | relu | `0.001` | `0.1` |
+
+Width bị chặn trong `[4,32]`. Khi `D/N_eff > 0.20`, width giảm còn 75% và
+alpha tăng một mức trong `(0.0001, 0.001, 0.01, 0.1)`. Mọi width đều dùng
+`ceil` trước khi chặn. Maximum lag không đổi regime trực tiếp, nhưng làm giảm
+`N_eff`; số target/exogenous lag quyết định `D`. Vì vậy lag/window load vẫn tác
+động vào architecture và regularization qua `D/N_eff`.
+
+Nơi định nghĩa hard-config:
+
+| File | Phần được định nghĩa |
+| --- | --- |
+| `vmd_ardl_ffnn/src/vmd_ardl_ffnn/config.py` | `HardFFNNPolicyConfig`: thresholds, width bounds, heavy-load ratio, alpha levels và số candidate giữ lại |
+| `vmd_ardl_ffnn/src/vmd_ardl_ffnn/hard_ffnn_policy.py` | `describe_target_imfs()`, bốn regime, bảng architecture/LR/alpha/activation và heavy-load adjustment |
+| `vmd_ardl_ffnn/src/vmd_ardl_ffnn/experiment_fixed.py` | `run_hard_ffnn_comparator()`: ARDL full-product search, fit theo seed, reconstructed selection, refit và ghi artifact |
+| `vmd_ardl_ffnn/src/vmd_ardl_ffnn/hard_ffnn_experiments.py` | Adapter dùng chung để đưa hard-config comparator vào hai benchmark studies |
+| `run_pipeline_advanced.py` | Chọn profile khi gọi `--pipeline vmd-ardl-hard-ffnn` và truyền reporting seeds |
+
+`ExperimentConfig` dùng `HardFFNNPolicyConfig()` qua `default_factory`, nên các
+giá trị mặc định nằm trong `config.py`, không nằm trong
+`build_experiment_config()`. Muốn thay policy cho experiment riêng, truyền
+`hard_ffnn=HardFFNNPolicyConfig(...)` khi tạo `ExperimentConfig`; không sửa
+artifact CSV sau khi chạy.
+
+Ví dụ:
+
+```python
+from vmd_ardl_ffnn.config import ExperimentConfig, HardFFNNPolicyConfig
+
+config = ExperimentConfig(
+    # data=..., vmd=..., ardl=..., ffnn=...
+    hard_ffnn=HardFFNNPolicyConfig(
+        low_frequency_max=0.10,
+        mid_frequency_max=0.30,
+        heavy_input_ratio=0.15,
+        min_width=4,
+        max_width=24,
+        top_component_candidates=3,
+    ),
+)
+```
+
+CLI hiện chưa expose từng hard-policy threshold. Nếu muốn đổi profile mặc định
+của `run_pipeline_advanced.py`, hãy import `HardFFNNPolicyConfig` và truyền
+field `hard_ffnn=` ngay trong `build_experiment_config()`; logic phân regime
+vẫn giữ ở `hard_ffnn_policy.py`.
+
+Các artifact audit chính:
+
+- `hard_ffnn_imf_descriptors.csv`: đặc tính frequency/entropy/roughness train-only;
+- `hard_ffnn_policy_config.csv`: thresholds và policy version;
+- `hard_ffnn_policy_assignments.csv`: lag spec → regime → FFNN config;
+- `hard_ffnn_component_candidates.csv` và
+  `hard_ffnn_component_shortlist.csv`: validation ranking theo component;
+- `hard_ffnn_reconstructed_seed_scores.csv` và
+  `hard_ffnn_shared_selection.csv`: reconstructed mean-seed selection.
+
 Ablation mới dùng schema `block_subset_proposed_v1`:
 
 | ID | Thay đổi chính | Selection |
@@ -308,10 +417,16 @@ Protocol đầy đủ và các comparison được phép diễn giải nằm tro
 | B4 | VMD + FFNN fixed lag | Đo VMD khi chưa adaptive lag selection |
 | B5 | VARNN | Multivariate neural benchmark |
 | B6 | VMD + AIC variable-block subsets + FFNN | Full-grid hoặc two-stage block-subset comparator; winner dùng mean reconstructed level validation RMSE qua seeds |
+| B7 | VMD + ARDL top-3 full-product + hard-config FFNN | Grid lag combinations; FFNN config được gán train-only theo IMF/lag load |
 | P | Proposed sequential VMD–ARDL–FFNN | Mô hình đầy đủ |
 
 B6 chỉ là benchmark comparator, không được gán thêm một mã ablation và không làm
 thay đổi A4. Forecast level của B6 được đưa vào cùng bảng metrics và mọi cặp DM/Holm.
+
+B7 dùng cùng hard-config protocol với B8 của `block-proposed-benchmark`: top-3
+exogenous orders/feature, full Cartesian lag grid, shared reconstructed-level
+mean-seed selection và không grid FFNN hyperparameters. Nó là benchmark comparator,
+không phải ablation mới và không thay Proposed A4 của study gốc.
 
 ### Ablation A0–A5
 
@@ -335,6 +450,17 @@ Benchmark mặc định chạy 5 reporting seeds:
 Nếu không truyền `--paper-seeds`, đúng 5 seed trên vẫn được dùng. Reporting seed
 không được chọn như một hyperparameter: project xuất từng seed và tổng hợp
 mean/std/median/count.
+
+Mỗi benchmark study báo hai estimand riêng:
+
+- `benchmark_metrics_comparison.csv`: bảng chính, tính metric riêng cho từng
+  seed rồi tổng hợp mean/std/median/count. Bảng này đo expected single-model
+  performance và độ ổn định giữa các random initializations.
+- `benchmark_seed_robustness_metrics.csv`: explicit compatibility alias của
+  cùng bảng mean/std/median/count phía trên.
+- `benchmark_ensemble_metrics_comparison.csv`: bảng phụ, trung bình prediction
+  qua seeds tại từng ngày trước rồi mới tính một bộ RMSE/MAE/MAPE/DA.
+  DM/Holm test tiếp tục dùng chuỗi dự báo ensemble này và ghi rõ estimand.
 
 Để giảm runtime riêng cho B6 mà không bỏ block spec trước fast screen:
 
@@ -365,6 +491,9 @@ Benchmark thực hiện:
 
 - Diebold–Mariano test trên common test dates, squared loss, horizon 1.
 - Ensemble-mean prediction qua reporting seeds trước khi so sánh model.
+- Mean/std metric qua seed là kết quả báo cáo chính trong
+  `benchmark_metrics_comparison.csv`; ensemble-mean prediction dùng bởi DM
+  được lưu riêng trong `benchmark_ensemble_metrics_comparison.csv`.
 - Holm correction cho nhiều pairwise comparisons.
 - Moving-block bootstrap 95% CI cho paired mean loss difference.
 - Kiểm tra mọi benchmark có cùng validation/test dates và cùng actual values.
@@ -407,55 +536,101 @@ robustness, không phải để tune cấu hình chính. Fixed-length rolling wi
 
 ```text
 Project/
-├── .venv/                         # Virtual environment cục bộ; không commit
-├── df_final.csv                   # Dataset mặc định của entrypoint
+├── .python-version                 # Python version dùng bởi pyenv
+├── .venv/                          # Virtual environment cục bộ; không commit
+├── requirements.txt                # Dependency list tiện dụng ở repository root
+├── df_final.csv                    # Dataset mặc định của entrypoint
 ├── cpi_forecast_selected_variables.csv
-│                                    Dataset thay thế; cần config cột phù hợp
-├── run_pipeline_advanced.py       # Entrypoint được khuyến nghị
+│                                     # Dataset thay thế; cần config cột phù hợp
+├── run_pipeline_advanced.py        # Entrypoint run-scoped được khuyến nghị
 ├── Experimental_Plan_VMD_ARDL_FFNN.md
-│                                    Protocol và checklist cho paper
-├── README.md                      # Tài liệu workflow hiện tại
-├── ardl_ffnn_model.py             # Script thử nghiệm/legacy, không phải runner chính
-├── compare_models/                # Notebook/script so sánh cũ, không thuộc paper runner
-├── results_*/                     # Kết quả legacy từ các lần chạy trước
+│                                     # Protocol paper của benchmark gốc
+├── Experimental_Plan_BlockSubset_Proposed.md
+│                                     # Protocol paper khi A7 block-subset là Proposed
+├── README.md                       # Tài liệu workflow hiện tại
+├── ardl_ffnn_model.py              # Script thử nghiệm/legacy, không phải runner chính
+├── compare_models/                 # Notebook/script so sánh cũ, ngoài paper runner
+├── results/                        # Modern run-scoped outputs: <pipeline>/<run_id>/
+├── results_export_vmd/             # Output legacy
+├── results_vmd/                    # Output legacy
+├── results_vmd-ardl-joint-select/  # Output legacy
+├── results_vmd-ardl-select-order/  # Output legacy
 └── vmd_ardl_ffnn/
-    ├── pyproject.toml             # Dependencies, extras và pytest config
-    ├── README.md                  # Package README ngắn
-    ├── CLI_OPTIONS.md             # Tùy chọn của package CLI
-    ├── PROJECT_REVIEW.md          # Review kỹ thuật lịch sử
+    ├── pyproject.toml              # Package metadata, dependencies và pytest config
+    ├── docs/
+    │   ├── README.md               # Package quick-start
+    │   ├── CLI_OPTIONS.md          # Tùy chọn package CLI
+    │   ├── PROJECT_REVIEW.md       # Review kỹ thuật lịch sử
+    │   └── plan.md                 # Plan/refactor note lịch sử
+    ├── data/raw/                   # Vị trí dự phòng cho raw package data
+    ├── results/                    # Output legacy trước run-scoped entrypoint
     ├── tests/
-    │   ├── test_refactor.py       # Unit/regression tests
-    │   └── test_smoke.py          # End-to-end và TensorFlow smoke tests
-    └── src/vmd_ardl_ffnn/
-        ├── __init__.py
-        ├── cli.py
-        ├── config.py
-        ├── data.py
-        ├── stationarity.py
-        ├── features.py
-        ├── lag_selection.py
-        ├── decomposition.py
-        ├── experiment.py
-        ├── experiment_fixed.py
-        ├── metrics.py
-        ├── evaluation.py
-        ├── diagnostics.py
-        ├── artifacts.py
-        ├── paper_baselines.py
-        ├── paper_experiments.py
-        ├── paper_reporting.py
-        ├── statistical_tests.py
-        ├── sensitivity_experiments.py
-        └── models/
-            ├── ffnn.py
-            └── varnn.py
+    │   ├── test_refactor.py        # Unit/regression tests
+    │   └── test_smoke.py           # End-to-end và TensorFlow smoke tests
+    ├── build/                      # Generated build output; không sửa trực tiếp
+    └── src/
+        ├── vmd_ardl_ffnn_reproduction.egg-info/
+        │                              # Generated editable-install metadata
+        └── vmd_ardl_ffnn/
+            ├── __init__.py
+            ├── cli.py
+            ├── config.py
+            ├── data.py
+            ├── stationarity.py
+            ├── features.py
+            ├── lag_selection.py
+            ├── decomposition.py
+            ├── experiment.py
+            ├── experiment_fixed.py
+            ├── block_proposed_experiments.py
+            ├── paper_experiments.py
+            ├── hard_ffnn_experiments.py
+            ├── sensitivity_experiments.py
+            ├── hard_ffnn_policy.py
+            ├── paper_baselines.py
+            ├── paper_reporting.py
+            ├── statistical_tests.py
+            ├── metrics.py
+            ├── evaluation.py
+            ├── diagnostics.py
+            ├── artifacts.py
+            └── models/
+                ├── __init__.py
+                ├── ffnn.py
+                └── varnn.py
 ```
 
-### Source modules
+Các thư mục `__pycache__/`, `.pytest_cache/`, `build/` và `*.egg-info/` là
+generated state, không phải source of truth. Source cần sửa luôn nằm trong
+`vmd_ardl_ffnn/src/vmd_ardl_ffnn/`.
+
+### Các file experiment và orchestration
+
+| File | Pipeline/chức năng |
+| --- | --- |
+| `experiment.py` | Public facade ổn định; chỉ re-export `VMDARDLFFNNExperiment` và `config_for_columns` từ core implementation |
+| `experiment_fixed.py` | Core engine của project: split/transform/VMD, ARDL lag selection, rolling screen, FFNN fit/refit, reconstruction; triển khai single run, no-VMD, shared mean-seed, block-subset, hard-config, comparison và benchmark facade. Tên `fixed` là lịch sử, không có nghĩa pipeline chỉ chạy fixed lag |
+| `paper_experiments.py` | Orchestrator cho `--pipeline benchmark`: benchmark gốc, A0–A5, baselines/VARNN/hard-config/block comparator, primary mean/std qua seed, ensemble table phụ, efficiency, DM/Holm và paper artifacts |
+| `block_proposed_experiments.py` | Orchestrator cho `--pipeline block-proposed-benchmark`: đưa A7 two-stage block-subset thành Proposed, chạy A0–A7 cùng sequential/joint/hard-config/VARNN comparators |
+| `hard_ffnn_experiments.py` | Adapter dùng chung cho hard-config comparator trong hai benchmark; ép ARDL target-first + top-3 full-product, gọi core engine và chuẩn hóa metrics/forecasts. Policy không được định nghĩa ở file này |
+| `sensitivity_experiments.py` | One-factor-at-a-time robustness study của Proposed: VMD modes/alpha, lag bounds, AIC/BIC, feasible full-product và split ratios; không dùng test để chọn profile thắng |
+
+Luồng gọi chính:
+
+```text
+run_pipeline_advanced.py
+→ VMDARDLFFNNExperiment trong experiment.py
+→ implementation trong experiment_fixed.py
+→ paper/block/hard/sensitivity orchestrator tùy --pipeline
+→ artifacts trong results/<pipeline>/<run_id>/
+```
+
+### Các source module còn lại
 
 | File | Trách nhiệm |
 | --- | --- |
-| `config.py` | Dataclass cấu hình và validation cho data/VMD/ARDL/FFNN |
+| `__init__.py` | Public package exports |
+| `config.py` | Dataclass cấu hình và validation cho data/VMD/ARDL/FFNN, diagnostics, stationarity và `HardFFNNPolicyConfig` |
 | `data.py` | Đọc CSV, calendar validation, missing-value và log checks |
 | `stationarity.py` | ADF/KPSS train-only và transform `level`/`diff1` |
 | `features.py` | Đại diện `LagSpec` target/exogenous lags |
@@ -463,17 +638,14 @@ Project/
 | `decomposition.py` | Self-contained VMD và optional library backend |
 | `models/ffnn.py` | NumPy FFNN, scaler và Adam optimizer |
 | `models/varnn.py` | VAR lag selection, TensorFlow VARNN, LR validation và refit |
-| `experiment.py` | Public facade export `VMDARDLFFNNExperiment` |
-| `experiment_fixed.py` | Implementation chính của VMD/no-VMD workflow và block-subset comparator; tên file mang tính lịch sử |
+| `hard_ffnn_policy.py` | Train-only IMF descriptors và deterministic mapping từ frequency/entropy/roughness + lag load sang architecture/LR/alpha/activation |
 | `metrics.py` | RMSE, MAE, MAPE và Directional Accuracy |
 | `evaluation.py` | Chuẩn hóa forecast/scale và bảng so sánh model |
 | `diagnostics.py` | Series statistics, Granger và ARDL residual diagnostics |
 | `artifacts.py` | Run ID, manifest, config hash và ghi CSV run-scoped |
 | `paper_baselines.py` | Naïve và standalone ARDL baselines |
-| `paper_experiments.py` | Benchmark, ablation, seed aggregation và DM orchestration |
 | `paper_reporting.py` | Lag frequency tables và các figure cho paper |
 | `statistical_tests.py` | DM, Holm correction và block-bootstrap CI |
-| `sensitivity_experiments.py` | One-factor-at-a-time robustness study |
 | `cli.py` | CLI tùy biến chi tiết; không phải entrypoint run-scoped ưu tiên |
 
 Không import trực tiếp `experiment_fixed.py` từ code bên ngoài. Dùng:
@@ -526,8 +698,11 @@ results/benchmark/<run_id>/
 ├── paper_forecast_date_coverage.csv
 ├── paper_seed_metrics.csv
 ├── paper_metrics_summary.csv
+├── paper_ensemble_metrics_summary.csv
 ├── paper_forecasts.csv
-├── benchmark_metrics_comparison.csv
+├── benchmark_metrics_comparison.csv          # Primary mean/std qua seeds
+├── benchmark_ensemble_metrics_comparison.csv # Secondary ensemble metrics
+├── benchmark_seed_robustness_metrics.csv      # Explicit primary-table alias
 ├── benchmark_forecasts_comparison.csv
 ├── ablation_metrics.csv
 ├── ablation_forecasts.csv
@@ -612,8 +787,9 @@ TensorFlow tests chỉ chạy khi interpreter hiện tại import được Tenso
    fast-screen trên nhiều train-only folds với hai learning rates trước khi full
    FFNN grid chạy. VARNN cũng fit hai validation candidates cho mỗi seed.
 6. **Full benchmark rất nặng.** Nó chạy deterministic baselines, 7 neural
-   variants qua 5 seeds, B6 và VARNN qua 5 seeds. B6 `full-grid` fit cả 15 block
-   subsets/component; `two-stage` fast-screen đủ 15 nhưng chỉ full-grid top 4.
+   variants qua 5 seeds, B6, B7 hard-config và VARNN qua 5 seeds. B6 `full-grid`
+   fit cả 15 block subsets/component; `two-stage` fast-screen đủ 15 nhưng chỉ
+   full-grid top 4. B7 có tối đa 81 lag specs/IMF và một hard FFNN config/spec.
    Nên smoke bằng một seed trước.
    Pipeline `block-proposed-benchmark` còn nặng hơn vì chạy đồng thời A5
    shared full-grid, A6 per-seed full-grid và A7 two-stage với hai final learning
@@ -645,6 +821,6 @@ TensorFlow tests chỉ chạy khi interpreter hiện tại import được Tenso
   tests và checklist trước khi viết paper.
 - `Experimental_Plan_BlockSubset_Proposed.md`: study riêng lấy block-subset
   two-stage làm Proposed và chuẩn hóa shared mean-seed selection.
-- `vmd_ardl_ffnn/CLI_OPTIONS.md`: toàn bộ option của package CLI chi tiết.
-- `vmd_ardl_ffnn/PROJECT_REVIEW.md`: review/refactor notes lịch sử; README này và
-  code hiện tại được ưu tiên nếu có điểm không còn đồng bộ.
+- `vmd_ardl_ffnn/docs/CLI_OPTIONS.md`: toàn bộ option của package CLI chi tiết.
+- `vmd_ardl_ffnn/docs/PROJECT_REVIEW.md`: review/refactor notes lịch sử; README
+  này và code hiện tại được ưu tiên nếu có điểm không còn đồng bộ.
