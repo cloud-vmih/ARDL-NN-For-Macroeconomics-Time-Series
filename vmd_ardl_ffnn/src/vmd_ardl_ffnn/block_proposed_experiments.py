@@ -190,6 +190,7 @@ def _run_shared_block_variant(
     seeds: tuple[int, ...],
     output_dir: Path,
     search_strategy: str,
+    fast_screen_validation_scope: str = "outer_validation",
 ) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame, ExperimentConfig]:
     variant_config = _shared_config(
         config,
@@ -202,6 +203,7 @@ def _run_shared_block_variant(
         csv_path,
         reporting_seeds=seeds,
         search_strategy=search_strategy,
+        fast_screen_validation_scope=fast_screen_validation_scope,
     )
     metrics, forecasts = _normalized_result(
         result,
@@ -979,7 +981,7 @@ def run_block_proposed_experiments(
     proposed_result = variant_results[PROPOSED_PIPELINE][0]
     write_paper_figures(
         benchmark_forecasts,
-        benchmark_ensemble_metrics,
+        benchmark_metrics,
         efficiency,
         lag_frequency,
         root,

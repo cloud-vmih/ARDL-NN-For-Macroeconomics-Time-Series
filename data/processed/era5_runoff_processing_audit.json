@@ -1,0 +1,10 @@
+{
+  "processing_version": 2,
+  "processing": "direct interval amount; clip negative packing noise; metres to mm",
+  "source": "NSF-NCAR ERA5 atmospheric surface forecast (accumulated)",
+  "source_resolution_degrees": 0.25,
+  "unique_grid_cells": 42,
+  "basins": 183,
+  "negative_raw_value_count": 0,
+  "minimum_raw_value_m": 0.0
+}

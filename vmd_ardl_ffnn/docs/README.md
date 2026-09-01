@@ -52,6 +52,24 @@ level RMSE for no-VMD FFNN/VARNN and reconstructed-level RMSE for VMD models.
 It then refits the locked winner at every seed; it never selects a best seed or
 uses test loss for selection.
 
+For a smaller direct comparison without baselines, VARNN or ablations, run:
+
+```bash
+python ../run_pipeline_advanced.py --pipeline shared-mean-benchmark \
+  --paper-seeds 7 42 123 2024 2025
+```
+
+This profile contains exactly `ardl_ffnn_no_vmd`, the current block-subset
+Proposed, the legacy sequential Proposed, and `vmd_ardl_joint_select`. Each
+workflow locks one FFNN signature by mean validation RMSE across all reporting
+seeds before per-seed refit. Its primary table is the per-seed mean/std summary;
+the mean-prediction ensemble is retained only as a secondary table and for DM.
+For the current block-subset Proposed in this profile, the lightweight
+`alpha=0.1`, learning-rate `0.001` screen runs on train-only expanding folds.
+Outer validation is reserved for the subsequent full FFNN grid and reconstructed
+winner selection. The separate `block-proposed-benchmark` retains its historical
+outer-validation fast-screen protocol.
+
 The new A0–A7 study isolates fixed/no-VMD baselines, ARDL target selection, AIC
 variable blocks, component versus reconstructed objectives, shared versus
 per-seed selection, and full-grid versus two-stage search. A7 is the Proposed

@@ -892,7 +892,7 @@ def run_paper_experiments(
         write_csv(skipped, root / "skipped_models.csv")
     write_paper_figures(
         benchmark_forecasts,
-        benchmark_ensemble_metrics,
+        benchmark_metrics,
         efficiency,
         lag_frequency,
         root,

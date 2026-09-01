@@ -1,0 +1,43 @@
+{
+  "created_utc": "2026-08-19T12:01:14.834397+00:00",
+  "study_area": "Son La Province and contributing upstream HydroBASINS level-12 zones",
+  "period": {
+    "start_year": 2021,
+    "end_year": 2024
+  },
+  "files": {
+    "static": {
+      "path": "/home/cloud/cloud/DA/Project/data/processed/static_features_sonla_upstream.csv",
+      "available": true
+    },
+    "basin_locations": {
+      "path": "/home/cloud/cloud/DA/Project/data/processed/sonla_basin_network.csv",
+      "available": true
+    },
+    "observations": {
+      "path": "/home/cloud/cloud/DA/Project/data/processed/observations_hourly.parquet",
+      "available": true
+    },
+    "glofas_daily": {
+      "path": "/home/cloud/cloud/DA/Project/data/processed/glofas_discharge_daily_main_outlets.parquet",
+      "available": false
+    },
+    "river_thresholds": {
+      "path": "/home/cloud/cloud/DA/Project/data/processed/glofas_return_thresholds_main_outlets.csv",
+      "available": false
+    }
+  },
+  "sources": {
+    "hydrobasins": "https://data.hydrosheds.org/file/hydrobasins/standard/hybas_as_lev12_v1c.zip",
+    "province_boundary": "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/VNM/ADM1/geoBoundaries-VNM-ADM1.geojson",
+    "weather": "s3://earthmover-icechunk-era5/era5_surface_aws (temporal group)",
+    "runoff": "s3://nsf-ncar-era5/e5.oper.fc.sfc.accumu (parameter 128.008 SRO)",
+    "river_discharge": "https://flood-api.open-meteo.com/v1/flood"
+  },
+  "limitations": [
+    "ERA5 SRO is 0.25 degree, so multiple level-12 basins share one runoff grid cell.",
+    "ERA5 weather and runoff use nearest 0.25-degree cells, not polygon-area averages.",
+    "GloFAS is daily river discharge near a basin outlet and is not the hourly runoff target.",
+    "The merged history supports oracle-exogenous backtesting; deployable forecasts still need issue-time NWP."
+  ]
+}

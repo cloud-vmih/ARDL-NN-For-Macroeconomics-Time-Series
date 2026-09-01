@@ -40,6 +40,11 @@ cd /home/cloud/cloud/DA/Project
   --pipeline block-proposed-benchmark \
   --paper-seeds 7 42 123 2024 2025
 
+# So sánh gọn đúng 4 workflow, tất cả dùng shared mean-seed selector
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline shared-mean-benchmark \
+  --paper-seeds 7 42 123 2024 2025
+
 # Comparator hard-config: grid lag combinations, không grid FFNN hyperparameters
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline vmd-ardl-hard-ffnn \
@@ -75,7 +80,7 @@ Cấu hình của entrypoint được khai báo trong `build_experiment_config()
 | Lag shortlist | Top 4, luôn giữ raw RMSE winner và one-standard-error winner đơn giản nhất |
 | FFNN activation | `tanh` |
 | FFNN alpha | `1e-4`, `1e-3`, `1e-2`, `1e-1` |
-| FFNN learning rate | Pipeline thường/benchmark cũ dùng `0.001`; `block-proposed-benchmark` validation cả `0.01`, `0.001` |
+| FFNN learning rate | Pipeline thường/benchmark cũ dùng `0.001`; `block-proposed-benchmark` và `shared-mean-benchmark` validation cả `0.01`, `0.001` |
 | FFNN seed grid ở single pipeline | `7`, `42`, `123`; chọn bằng validation |
 | Paper seeds | `7`, `42`, `123`, `2024`, `2025` |
 | VARNN | 32 hidden units, sigmoid; validation chỉ chọn learning rate |
@@ -227,6 +232,7 @@ dùng để chẩn đoán.
 | `model-comparison` | So sánh proposed VMD–ARDL–FFNN với VARNN |
 | `benchmark` | Full benchmark B0–B7, proposed, ablation A0–A5, DM/Holm |
 | `block-proposed-benchmark` | Study riêng lấy block-subset two-stage làm Proposed, shared mean-seed benchmarks, ablation A0–A7, DM/Holm |
+| `shared-mean-benchmark` | Benchmark gọn đúng 4 workflow: no-VMD, Proposed hiện tại, Proposed cũ và joint-select; mọi stochastic winner dùng shared mean-seed selection; không chạy baseline, VARNN hay ablation |
 | `sensitivity` | Robustness grid one-factor-at-a-time cho proposed model |
 
 Ví dụ:
@@ -250,6 +256,43 @@ Lưu ý dataset khác vẫn phải có đúng các cột đang khai báo trong c
 entrypoint. Truyền `--data` không tự động đổi target/features.
 
 ## Benchmark và ablation cho paper
+
+### Benchmark gọn 4 workflow với cùng shared-mean selector
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline shared-mean-benchmark \
+  --paper-seeds 7 42 123 2024 2025
+```
+
+Pipeline này chỉ chạy bốn model sau:
+
+| Vai trò | Pipeline artifact | Cơ chế lag/search |
+| --- | --- | --- |
+| No-VMD | `ardl_ffnn_no_vmd` | Chọn target lag trước, ARDL screen từng exogenous variable, rolling shared-mean lag screen, không VMD |
+| Proposed hiện tại | `vmd_ardl_block_subset_proposed` | Target-first, sinh AIC variable blocks, fast-screen trên train-only inner rolling folds, full-grid và chọn reconstructed winner trên outer validation |
+| Proposed cũ | `vmd_ardl_sequential_screen` | VMD, target-first, ARDL screen từng exogenous variable, rolling shared-mean lag screen |
+| Joint Select | `vmd_ardl_joint_select` | VMD, `ardl_select_order` chọn target và exogenous lags đồng thời |
+
+Với mỗi FFNN signature, validation RMSE được tính ở mọi `--paper-seeds` rồi lấy
+mean để xếp hạng. Chỉ một signature chung thắng; cùng lag/architecture/LR/alpha/
+activation đó được refit riêng ở từng seed. Ba pipeline có VMD chọn bằng mean
+**reconstructed-level** validation RMSE; no-VMD dùng mean **level** validation
+RMSE. Vì vậy seed không phải hyperparameter và pipeline không chọn “best seed”.
+
+Riêng block-Proposed của pipeline này không dùng outer validation để giữ top 4
+block specs. Mỗi spec được fit bằng lightweight model cố định `alpha=0.1`, LR
+`0.001` trên 3 expanding folds nằm hoàn toàn trong train và được xếp bằng mean
+component RMSE qua folds × reporting seeds. Outer validation chỉ bắt đầu được
+dùng sau khi top 4 specs/component đã khóa, cho full FFNN grid và reconstructed
+combination selection. `block-proposed-benchmark` cũ vẫn giữ outer-validation
+fast-screen để bảo toàn protocol/artifact lịch sử của study đó.
+
+`benchmark_metrics_comparison.csv` là kết quả chính: mean/std/median/count của
+metric test tính riêng ở từng seed. `benchmark_ensemble_metrics_comparison.csv`
+là kết quả phụ sau khi average prediction của các seed. DM test cũng dùng
+ensemble-mean predictions trên các test dates chung. Pipeline này không tạo
+`ablation_metrics.csv` và không chạy VARNN, kể cả khi TensorFlow có sẵn.
 
 ### Study mới: Block-subset làm Proposed chính
 
@@ -583,6 +626,7 @@ Project/
             ├── experiment.py
             ├── experiment_fixed.py
             ├── block_proposed_experiments.py
+            ├── shared_mean_benchmark_experiments.py
             ├── paper_experiments.py
             ├── hard_ffnn_experiments.py
             ├── sensitivity_experiments.py
@@ -612,6 +656,7 @@ generated state, không phải source of truth. Source cần sửa luôn nằm t
 | `experiment_fixed.py` | Core engine của project: split/transform/VMD, ARDL lag selection, rolling screen, FFNN fit/refit, reconstruction; triển khai single run, no-VMD, shared mean-seed, block-subset, hard-config, comparison và benchmark facade. Tên `fixed` là lịch sử, không có nghĩa pipeline chỉ chạy fixed lag |
 | `paper_experiments.py` | Orchestrator cho `--pipeline benchmark`: benchmark gốc, A0–A5, baselines/VARNN/hard-config/block comparator, primary mean/std qua seed, ensemble table phụ, efficiency, DM/Holm và paper artifacts |
 | `block_proposed_experiments.py` | Orchestrator cho `--pipeline block-proposed-benchmark`: đưa A7 two-stage block-subset thành Proposed, chạy A0–A7 cùng sequential/joint/hard-config/VARNN comparators |
+| `shared_mean_benchmark_experiments.py` | Orchestrator gọn cho `--pipeline shared-mean-benchmark`: chỉ chạy no-VMD, block-subset Proposed hiện tại, sequential Proposed cũ và joint-select dưới cùng shared mean-seed selection/reporting protocol |
 | `hard_ffnn_experiments.py` | Adapter dùng chung cho hard-config comparator trong hai benchmark; ép ARDL target-first + top-3 full-product, gọi core engine và chuẩn hóa metrics/forecasts. Policy không được định nghĩa ở file này |
 | `sensitivity_experiments.py` | One-factor-at-a-time robustness study của Proposed: VMD modes/alpha, lag bounds, AIC/BIC, feasible full-product và split ratios; không dùng test để chọn profile thắng |
 
@@ -621,7 +666,7 @@ Luồng gọi chính:
 run_pipeline_advanced.py
 → VMDARDLFFNNExperiment trong experiment.py
 → implementation trong experiment_fixed.py
-→ paper/block/hard/sensitivity orchestrator tùy --pipeline
+→ paper/block/shared-mean/hard/sensitivity orchestrator tùy --pipeline
 → artifacts trong results/<pipeline>/<run_id>/
 ```
 
@@ -729,6 +774,11 @@ results/benchmark/<run_id>/
 ├── varnn/seed_<seed>/
 └── <deterministic_baseline>/
 ```
+
+`shared-mean-benchmark` dùng cùng nhóm paper/benchmark artifact phía trên nhưng
+chỉ có bốn thư mục pipeline được liệt kê trong bảng “Benchmark gọn 4 workflow”.
+Nó không sinh `ablation_metrics.csv`, `ablation_forecasts.csv`, thư mục VARNN
+hay deterministic baseline.
 
 Trong các FFNN validation tables, `learning_rate_init` là learning rate của
 candidate. Trong mỗi VARNN seed directory, `varnn_validation_search.csv` lưu hai

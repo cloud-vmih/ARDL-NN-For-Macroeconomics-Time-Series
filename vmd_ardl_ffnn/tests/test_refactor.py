@@ -54,6 +54,10 @@ def test_runner_profiles_use_sequential_proposed_and_keep_joint_comparator() -> 
         "block-proposed-benchmark",
         Path("out"),
     )
+    shared_mean = runner.build_experiment_config(
+        "shared-mean-benchmark",
+        Path("out"),
+    )
     select_order = runner.build_experiment_config("vmd-ardl-select-order", Path("out"))
     joint = runner.build_experiment_config("vmd-ardl-joint-select", Path("out"))
     hard = runner.build_experiment_config("vmd-ardl-hard-ffnn", Path("out"))
@@ -65,6 +69,7 @@ def test_runner_profiles_use_sequential_proposed_and_keep_joint_comparator() -> 
     assert hard.hard_ffnn.policy_version == "frequency_lag_balanced_v1"
     assert proposed.ffnn.learning_rate_grid == (0.001,)
     assert block_proposed.ffnn.learning_rate_grid == (0.01, 0.001)
+    assert shared_mean.ffnn.learning_rate_grid == (0.01, 0.001)
     assert proposed.ffnn.lag_screen_folds == 3
     assert proposed.ffnn.lag_screen_validation_size == 12
     assert proposed.ffnn.lag_screen_learning_rates() == (0.01, 0.001)
@@ -94,6 +99,12 @@ def test_runner_exposes_separate_block_proposed_pipeline() -> None:
     runner = _runner_module()
     args = runner.parse_args(["--pipeline", "block-proposed-benchmark"])
     assert args.pipeline == "block-proposed-benchmark"
+
+
+def test_runner_exposes_shared_mean_benchmark_pipeline() -> None:
+    runner = _runner_module()
+    args = runner.parse_args(["--pipeline", "shared-mean-benchmark"])
+    assert args.pipeline == "shared-mean-benchmark"
 
 
 def test_runner_exposes_hard_ffnn_pipeline() -> None:
@@ -221,6 +232,102 @@ def test_block_subset_fast_screen_keeps_exactly_four_best_specs(monkeypatch) -> 
     assert specs[-1].label not in {spec.label for spec in selected}
     assert summary["fast_screen_seed_aggregation"].eq(
         "mean_across_reporting_seeds"
+    ).all()
+
+
+def test_block_subset_inner_rolling_screen_uses_train_only_folds(
+    monkeypatch,
+) -> None:
+    experiment = VMDARDLFFNNExperiment(
+        ExperimentConfig(
+            data=DataConfig(
+                target="Y",
+                features=("X",),
+                log_transform=False,
+            )
+        )
+    )
+    specs = [
+        LagSpec(target_lags=(1,), exog_lags={"X": tuple(range(1, order + 1))})
+        for order in range(1, 6)
+    ]
+    dates = pd.date_range("2020-01-01", periods=24, freq="MS")
+    data = pd.DataFrame({"Y": 10.0, "X": 5.0}, index=dates)
+    contexts = []
+    for fold, validation_start in enumerate((8, 16), start=1):
+        fold_train = data.iloc[:validation_start].copy()
+        fold_validation = data.iloc[
+            validation_start : validation_start + 8
+        ].copy()
+        contexts.append(
+            {
+                "fold": fold,
+                "train": fold_train,
+                "validation": fold_validation,
+                "train_components": {"VMD1": fold_train},
+                "origin_cache": {},
+                "actual_components": {},
+            }
+        )
+
+    class FakeModel:
+        def __init__(self, spec: LagSpec, seed: int):
+            self.spec = spec
+            self.seed = seed
+
+    def fake_fit(data, spec, hidden_layer_sizes, alpha, seed, activation, **kwargs):
+        assert alpha == 0.1
+        assert kwargs["learning_rate_init"] == 0.001
+        return FakeModel(spec, seed), len(data)
+
+    def fake_predict(
+        model,
+        component,
+        cache,
+        actual_raw,
+        spec,
+        split,
+        candidate_id=None,
+        actual_components=None,
+    ):
+        order = max(spec.exog_lags["X"])
+        return pd.DataFrame(
+            {
+                "date": actual_raw.index,
+                "split": split,
+                "component": component,
+                "actual_component": np.full(len(actual_raw), 10.0),
+                "predicted_component": np.full(
+                    len(actual_raw),
+                    10.0 + order + model.seed * 0.001,
+                ),
+            }
+        )
+
+    monkeypatch.setattr(experiment, "_fit_model", fake_fit)
+    monkeypatch.setattr(experiment, "_predict_component_from_cache", fake_predict)
+    selected, detail, summary = (
+        experiment._fast_screen_block_subset_specs_inner_rolling(
+            component="VMD1",
+            specs=specs,
+            contexts=contexts,
+            seeds=(1, 2),
+        )
+    )
+    assert len(detail) == len(specs) * 2 * len(contexts)
+    assert len(selected) == 4
+    assert detail["fold"].nunique() == len(contexts)
+    assert detail["screen_validation_scope"].eq(
+        "train_inner_rolling"
+    ).all()
+    assert detail["selection_data_scope"].eq(
+        "train_only_inner_rolling"
+    ).all()
+    assert summary["seed_count"].eq(2).all()
+    assert summary["fold_count"].eq(2).all()
+    assert summary["selected_for_full_grid"].sum() == 4
+    assert summary["fast_screen_seed_aggregation"].eq(
+        "mean_across_reporting_seeds_and_inner_folds"
     ).all()
 
 
@@ -810,6 +917,145 @@ def test_block_proposed_orchestrator_builds_shared_benchmark_and_a0_a7(
     assert primary["estimand"].eq(
         "distribution_of_per_seed_metrics"
     ).all()
+
+
+def test_shared_mean_orchestrator_runs_exact_requested_model_set(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from vmd_ardl_ffnn import shared_mean_benchmark_experiments as study
+
+    seeds = (1, 2)
+    dates = pd.date_range("2024-01-01", periods=5, freq="MS")
+    calls: list[dict[str, object]] = []
+
+    def frames(pipeline: str, model: str, offset: float):
+        metrics: list[dict[str, object]] = []
+        forecasts: list[dict[str, object]] = []
+        for seed in seeds:
+            for split in ("validation", "test"):
+                metrics.append(
+                    {
+                        "model": model,
+                        "pipeline": pipeline,
+                        "target": "Y",
+                        "split": split,
+                        "scale": "level",
+                        "RMSE": offset + seed / 1000.0,
+                        "MAE": offset,
+                        "MAPE": offset,
+                        "Directional_Accuracy": 100.0,
+                        "seed": seed,
+                    }
+                )
+                for index, date in enumerate(dates):
+                    actual = float(10 + index)
+                    forecasts.append(
+                        {
+                            "date": date,
+                            "split": split,
+                            "actual": actual,
+                            "predicted": actual + offset + seed / 1000.0,
+                            "pipeline": pipeline,
+                            "scale": "level",
+                            "seed": seed,
+                        }
+                    )
+        return pd.DataFrame(metrics), pd.DataFrame(forecasts)
+
+    def fake_result() -> dict[str, pd.DataFrame | dict[str, object]]:
+        return {
+            "ardl_orders": pd.DataFrame({"feature": ["__ffnn_combo__"]}),
+            "best_component_models": pd.DataFrame(
+                {
+                    "component": ["VMD1", "VMD1"],
+                    "seed": list(seeds),
+                    "target_lags": [(1,), (1,)],
+                    "exog_lags": [{"X": (1,)}, {"X": (1,)}],
+                    "lag_spec": ["target:[1] | X:[1]"] * 2,
+                }
+            ),
+            "component_search_results": pd.DataFrame({"candidate_id": [1]}),
+            "lag_screen_fold_metrics": pd.DataFrame(),
+            "lag_screen_stability": pd.DataFrame(),
+            "training_components": {},
+        }
+
+    def fake_runner(csv_path, config, **kwargs):
+        calls.append(dict(kwargs))
+        offset = 0.01 * (len(calls) + 1)
+        metrics, forecasts = frames(kwargs["pipeline"], kwargs["model"], offset)
+        return (
+            fake_result(),
+            metrics,
+            forecasts,
+            replace(config, output_dir=kwargs["output_dir"]),
+        )
+
+    empty_audit = (pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
+    monkeypatch.setattr(study, "_dataset_audit", lambda *args: empty_audit)
+    monkeypatch.setattr(study, "_run_shared_vmd_variant", fake_runner)
+    monkeypatch.setattr(study, "_run_shared_no_vmd_variant", fake_runner)
+    monkeypatch.setattr(study, "_run_shared_block_variant", fake_runner)
+    monkeypatch.setattr(study, "write_paper_figures", lambda *args, **kwargs: None)
+
+    csv_path = tmp_path / "study.csv"
+    pd.DataFrame(
+        {
+            "TIME_PERIOD": dates,
+            "Y": np.linspace(10.0, 14.0, len(dates)),
+            "X": np.linspace(5.0, 7.0, len(dates)),
+        }
+    ).to_csv(csv_path, index=False)
+    result = study.run_shared_mean_benchmark_experiments(
+        csv_path,
+        ExperimentConfig(
+            data=DataConfig(target="Y", features=("X",), log_transform=False),
+            output_dir=tmp_path / "shared_mean",
+        ),
+        seeds=seeds,
+    )
+
+    assert set(result["comparison_metrics"]["pipeline"]) == set(
+        study.SHARED_MEAN_BENCHMARK_PIPELINES
+    )
+    assert result["comparison_metrics"]["estimand"].eq(
+        "distribution_of_per_seed_metrics"
+    ).all()
+    assert result["comparison_metrics"]["RMSE_count"].eq(len(seeds)).all()
+    assert result["ensemble_comparison_metrics"]["estimand"].eq(
+        "ensemble_mean_prediction"
+    ).all()
+    assert result["settings"]["shared_configuration_across_seeds"].all()
+    assert result["settings"]["selection_seed_aggregation"].eq(
+        "shared_mean_validation_across_reporting_seeds"
+    ).all()
+    assert len(calls) == 4
+    joint_call = next(
+        call
+        for call in calls
+        if call["pipeline"] == study.JOINT_SELECT_PIPELINE
+    )
+    assert joint_call["target_strategy"] == "ardl_select_order_joint"
+    assert joint_call["screening_mode"] == "none"
+    proposed_call = next(
+        call for call in calls if call["pipeline"] == study.PROPOSED_PIPELINE
+    )
+    assert proposed_call["search_strategy"] == "two_stage"
+    assert proposed_call["fast_screen_validation_scope"] == (
+        "train_inner_rolling"
+    )
+    proposed_setting = result["settings"].query(
+        "pipeline == @study.PROPOSED_PIPELINE"
+    ).iloc[0]
+    assert proposed_setting["fast_screen_validation_scope"] == (
+        "train_inner_rolling"
+    )
+    assert (tmp_path / "shared_mean" / "benchmark_metrics_comparison.csv").exists()
+    assert (
+        tmp_path / "shared_mean" / "benchmark_ensemble_metrics_comparison.csv"
+    ).exists()
+    assert not (tmp_path / "shared_mean" / "ablation_metrics.csv").exists()
 
 
 def test_directional_accuracy_uses_previous_actual() -> None:

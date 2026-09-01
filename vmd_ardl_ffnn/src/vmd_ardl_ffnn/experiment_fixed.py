@@ -2016,6 +2016,8 @@ class VMDARDLFFNNExperiment:
                         "n_val": int(len(prediction)),
                         "screen_stage": "block_subset_two_stage_fast_screen",
                         "screen_scale": "component_transformed",
+                        "screen_validation_scope": "outer_validation",
+                        "selection_data_scope": "outer_validation",
                         "error": None,
                     }
                     row.update({f"Val {metric}": value for metric, value in metrics.items()})
@@ -2036,6 +2038,8 @@ class VMDARDLFFNNExperiment:
                         "n_val": 0,
                         "screen_stage": "block_subset_two_stage_fast_screen",
                         "screen_scale": "component_transformed",
+                        "screen_validation_scope": "outer_validation",
+                        "selection_data_scope": "outer_validation",
                         "error": str(exc),
                         "Val RMSE": float("nan"),
                         "Val MAE": float("nan"),
@@ -2079,12 +2083,210 @@ class VMDARDLFFNNExperiment:
         summary["fast_screen_alpha"] = float(alpha)
         summary["fast_screen_learning_rate_init"] = float(learning_rate_init)
         summary["fast_screen_seed_aggregation"] = "mean_across_reporting_seeds"
+        summary["screen_validation_scope"] = "outer_validation"
 
         selected_labels = set(
             summary.loc[summary["selected_for_full_grid"], "lag_spec"].astype(str)
         )
         selected_specs = [spec for spec in specs if spec.label in selected_labels]
         detail["selected_for_full_grid"] = detail["lag_spec"].isin(selected_labels)
+        return selected_specs, detail, summary
+
+    def _fast_screen_block_subset_specs_inner_rolling(
+        self,
+        *,
+        component: str,
+        specs: list[LagSpec],
+        contexts: list[dict[str, Any]],
+        seeds: tuple[int, ...],
+        top_k: int = 4,
+        alpha: float = 0.1,
+        learning_rate_init: float = 0.001,
+    ) -> tuple[list[LagSpec], pd.DataFrame, pd.DataFrame]:
+        """Fast-screen block specs on train-only expanding validation folds."""
+        if not contexts:
+            raise ValueError(
+                "Block-subset inner rolling screen requires at least one fold."
+            )
+        rows: list[dict[str, Any]] = []
+        for spec in specs:
+            hidden_layer_sizes = self.config.ffnn.fast_architecture_for(
+                self._lag_spec_input_dimension(spec)
+            )
+            for seed in seeds:
+                for context in contexts:
+                    fold = int(context["fold"])
+                    fold_train = context["train"]
+                    fold_validation = context["validation"]
+                    try:
+                        component_train = context["train_components"][component]
+                        model, n_train = self._fit_model(
+                            component_train,
+                            spec,
+                            hidden_layer_sizes,
+                            float(alpha),
+                            int(seed),
+                            self.config.ffnn.activation,
+                            learning_rate_init=float(learning_rate_init),
+                            max_iter=int(self.config.ffnn.fast_max_iter),
+                        )
+                        prediction = self._predict_component_from_cache(
+                            model,
+                            component,
+                            context["origin_cache"],
+                            fold_validation,
+                            spec,
+                            f"block_subset_inner_fold_{fold}",
+                            actual_components=context["actual_components"],
+                        )
+                        if len(prediction) < int(self.config.ffnn.min_val):
+                            raise ValueError(
+                                f"Only {len(prediction)} validation rows in "
+                                "block-subset inner screen."
+                            )
+                        metrics = self._score_component_prediction(
+                            prediction,
+                            fold_validation,
+                        )
+                        row: dict[str, Any] = {
+                            "component": component,
+                            "lag_spec": spec.label,
+                            "target_lags": spec.target_lags,
+                            "exog_lags": spec.exog_lags,
+                            "input_dimension": self._lag_spec_input_dimension(spec),
+                            "seed": int(seed),
+                            "fold": fold,
+                            "train_start": fold_train.index.min(),
+                            "train_end": fold_train.index.max(),
+                            "validation_start": fold_validation.index.min(),
+                            "validation_end": fold_validation.index.max(),
+                            "hidden_layer_sizes": hidden_layer_sizes,
+                            "alpha": float(alpha),
+                            "activation": self.config.ffnn.activation,
+                            "learning_rate_init": float(learning_rate_init),
+                            "max_iter": int(self.config.ffnn.fast_max_iter),
+                            "n_train": int(n_train),
+                            "n_val": int(len(prediction)),
+                            "screen_stage": (
+                                "block_subset_two_stage_fast_screen"
+                            ),
+                            "screen_scale": "component_transformed",
+                            "screen_validation_scope": "train_inner_rolling",
+                            "selection_data_scope": "train_only_inner_rolling",
+                            "error": None,
+                        }
+                        row.update(
+                            {
+                                f"Val {metric}": value
+                                for metric, value in metrics.items()
+                            }
+                        )
+                    except (ValueError, KeyError, IndexError) as exc:
+                        row = {
+                            "component": component,
+                            "lag_spec": spec.label,
+                            "target_lags": spec.target_lags,
+                            "exog_lags": spec.exog_lags,
+                            "input_dimension": self._lag_spec_input_dimension(spec),
+                            "seed": int(seed),
+                            "fold": fold,
+                            "train_start": fold_train.index.min(),
+                            "train_end": fold_train.index.max(),
+                            "validation_start": fold_validation.index.min(),
+                            "validation_end": fold_validation.index.max(),
+                            "hidden_layer_sizes": hidden_layer_sizes,
+                            "alpha": float(alpha),
+                            "activation": self.config.ffnn.activation,
+                            "learning_rate_init": float(learning_rate_init),
+                            "max_iter": int(self.config.ffnn.fast_max_iter),
+                            "n_train": 0,
+                            "n_val": 0,
+                            "screen_stage": (
+                                "block_subset_two_stage_fast_screen"
+                            ),
+                            "screen_scale": "component_transformed",
+                            "screen_validation_scope": "train_inner_rolling",
+                            "selection_data_scope": "train_only_inner_rolling",
+                            "error": str(exc),
+                            "Val RMSE": float("nan"),
+                            "Val MAE": float("nan"),
+                            "Val MAPE": float("nan"),
+                            "Val Directional_Accuracy": float("nan"),
+                        }
+                    rows.append(row)
+
+        detail = pd.DataFrame(rows)
+        valid = detail.dropna(subset=["Val RMSE"]).copy()
+        expected_fold_count = len(contexts)
+        completeness = (
+            valid.groupby("lag_spec", as_index=False)
+            .agg(
+                seed_count=("seed", "nunique"),
+                fold_count=("fold", "nunique"),
+                valid_row_count=("Val RMSE", "count"),
+            )
+        )
+        completeness = completeness[
+            completeness["seed_count"].eq(len(seeds))
+            & completeness["fold_count"].eq(expected_fold_count)
+            & completeness["valid_row_count"].eq(
+                len(seeds) * expected_fold_count
+            )
+        ].copy()
+        complete_labels = set(completeness["lag_spec"].astype(str))
+        valid = valid[valid["lag_spec"].astype(str).isin(complete_labels)]
+        summary = (
+            valid.groupby("lag_spec", as_index=False)
+            .agg(
+                mean_val_RMSE=("Val RMSE", "mean"),
+                std_val_RMSE=("Val RMSE", "std"),
+                mean_val_MAE=("Val MAE", "mean"),
+                mean_val_MAPE=("Val MAPE", "mean"),
+                seed_count=("seed", "nunique"),
+                fold_count=("fold", "nunique"),
+                input_dimension=("input_dimension", "first"),
+            )
+        )
+        if summary.empty:
+            raise ValueError(
+                f"No complete inner rolling fast-screen result for "
+                f"component={component}."
+            )
+        summary["std_val_RMSE"] = summary["std_val_RMSE"].fillna(0.0)
+        summary = summary.sort_values(
+            [
+                "mean_val_RMSE",
+                "mean_val_MAE",
+                "mean_val_MAPE",
+                "input_dimension",
+                "lag_spec",
+            ]
+        ).reset_index(drop=True)
+        summary.insert(0, "component", component)
+        summary.insert(1, "fast_screen_rank", np.arange(1, len(summary) + 1))
+        keep_count = min(max(1, int(top_k)), len(summary))
+        summary["selected_for_full_grid"] = summary["fast_screen_rank"].le(
+            keep_count
+        )
+        summary["fast_screen_alpha"] = float(alpha)
+        summary["fast_screen_learning_rate_init"] = float(
+            learning_rate_init
+        )
+        summary["fast_screen_seed_aggregation"] = (
+            "mean_across_reporting_seeds_and_inner_folds"
+        )
+        summary["screen_validation_scope"] = "train_inner_rolling"
+
+        selected_labels = set(
+            summary.loc[
+                summary["selected_for_full_grid"],
+                "lag_spec",
+            ].astype(str)
+        )
+        selected_specs = [spec for spec in specs if spec.label in selected_labels]
+        detail["selected_for_full_grid"] = detail["lag_spec"].isin(
+            selected_labels
+        )
         return selected_specs, detail, summary
 
     def _fast_screen_specs_rolling_mean_seed(
@@ -2426,6 +2628,7 @@ class VMDARDLFFNNExperiment:
         *,
         reporting_seeds: tuple[int, ...],
         search_strategy: str = "full_grid",
+        fast_screen_validation_scope: str = "outer_validation",
     ) -> dict[str, pd.DataFrame]:
         """Run the AIC variable-block subset comparator with shared seed selection.
 
@@ -2440,11 +2643,20 @@ class VMDARDLFFNNExperiment:
         """
         seeds = tuple(dict.fromkeys(int(seed) for seed in reporting_seeds))
         block_search_strategy = search_strategy.replace("-", "_")
+        fast_screen_scope = fast_screen_validation_scope.replace("-", "_")
         if not seeds:
             raise ValueError("Block-subset mean-seed selection requires reporting seeds.")
         if block_search_strategy not in {"full_grid", "two_stage"}:
             raise ValueError(
                 "Block-subset search_strategy must be 'full_grid' or 'two_stage'."
+            )
+        if fast_screen_scope not in {
+            "outer_validation",
+            "train_inner_rolling",
+        }:
+            raise ValueError(
+                "fast_screen_validation_scope must be 'outer_validation' or "
+                "'train_inner_rolling'."
             )
         if self.config.ardl.exog_lag_strategy.replace("-", "_") != "ardl_block_subsets":
             raise ValueError(
@@ -2463,7 +2675,8 @@ class VMDARDLFFNNExperiment:
         self._log(
             "Starting AIC variable-block subset comparator with mean reconstructed "
             f"level validation selection across seeds={seeds}; "
-            f"search_strategy={block_search_strategy}."
+            f"search_strategy={block_search_strategy}; "
+            f"fast_screen_validation_scope={fast_screen_scope}."
         )
         base_data = self.load_data(csv_path)
         base_train, base_val, base_test = self.split_raw_data(base_data)
@@ -2497,23 +2710,51 @@ class VMDARDLFFNNExperiment:
         fast_screen_detail_frames: list[pd.DataFrame] = []
         fast_screen_summary_frames: list[pd.DataFrame] = []
         candidate_id = 0
+        inner_screen_contexts = (
+            self._prepare_vmd_lag_screen_contexts(train)
+            if block_search_strategy == "two_stage"
+            and fast_screen_scope == "train_inner_rolling"
+            else []
+        )
+        if (
+            block_search_strategy == "two_stage"
+            and fast_screen_scope == "train_inner_rolling"
+            and not inner_screen_contexts
+        ):
+            raise ValueError(
+                "No train-only inner rolling folds are available for the "
+                "block-subset fast screen."
+            )
         for component, train_component in train_components.items():
             component_specs = self.selected_specs_[component]
             if block_search_strategy == "two_stage":
-                component_specs, fast_detail, fast_summary = (
-                    self._fast_screen_block_subset_specs(
-                        component=component,
-                        train_data=train_component,
-                        specs=component_specs,
-                        validation=val,
-                        validation_cache=val_cache,
-                        validation_actual_components=val_actual_components,
-                        seeds=seeds,
-                        top_k=4,
-                        alpha=0.1,
-                        learning_rate_init=0.001,
+                if fast_screen_scope == "train_inner_rolling":
+                    component_specs, fast_detail, fast_summary = (
+                        self._fast_screen_block_subset_specs_inner_rolling(
+                            component=component,
+                            specs=component_specs,
+                            contexts=inner_screen_contexts,
+                            seeds=seeds,
+                            top_k=4,
+                            alpha=0.1,
+                            learning_rate_init=0.001,
+                        )
                     )
-                )
+                else:
+                    component_specs, fast_detail, fast_summary = (
+                        self._fast_screen_block_subset_specs(
+                            component=component,
+                            train_data=train_component,
+                            specs=component_specs,
+                            validation=val,
+                            validation_cache=val_cache,
+                            validation_actual_components=val_actual_components,
+                            seeds=seeds,
+                            top_k=4,
+                            alpha=0.1,
+                            learning_rate_init=0.001,
+                        )
+                    )
                 fast_screen_detail_frames.append(fast_detail)
                 fast_screen_summary_frames.append(fast_summary)
             rows, predictions, _, candidate_id = self._ffnn_search_candidates(
@@ -2600,6 +2841,11 @@ class VMDARDLFFNNExperiment:
             frame["block_subset_fast_screen_learning_rate_init"] = (
                 0.001 if block_search_strategy == "two_stage" else pd.NA
             )
+            frame["block_subset_fast_screen_validation_scope"] = (
+                fast_screen_scope
+                if block_search_strategy == "two_stage"
+                else pd.NA
+            )
         winning_combo = selection_df.iloc[0]
         selected_signature_by_component = {
             component: str(winning_combo[f"{component}_signature_id"])
@@ -2642,6 +2888,11 @@ class VMDARDLFFNNExperiment:
         )
         best_candidates["selection_seed_count"] = len(seeds)
         best_candidates["block_subset_search_strategy"] = block_search_strategy
+        best_candidates["block_subset_fast_screen_validation_scope"] = (
+            fast_screen_scope
+            if block_search_strategy == "two_stage"
+            else pd.NA
+        )
         best_candidates["selection_protocol"] = (
             "mean_reconstructed_level_validation_across_reporting_seeds"
         )
@@ -4350,6 +4601,28 @@ class VMDARDLFFNNExperiment:
             varnn_config if varnn_config is not None else VARNNConfig(),
             seeds=reporting_seeds,
             include_varnn=include_varnn,
+        )
+
+    def run_shared_mean_benchmark(
+        self,
+        csv_path: str | Path,
+        *,
+        seeds: tuple[int, ...] | None = None,
+    ) -> dict[str, Any]:
+        """Run the four-workflow benchmark with shared mean-seed selection."""
+        from .shared_mean_benchmark_experiments import (
+            run_shared_mean_benchmark_experiments,
+        )
+
+        reporting_seeds = tuple(seeds or self.config.ffnn.seed_grid)
+        self._log(
+            "Starting four-workflow shared-mean benchmark with seeds "
+            f"{reporting_seeds}."
+        )
+        return run_shared_mean_benchmark_experiments(
+            csv_path,
+            self.config,
+            seeds=reporting_seeds,
         )
 
 

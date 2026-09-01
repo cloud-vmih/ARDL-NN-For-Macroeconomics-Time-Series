@@ -638,6 +638,7 @@ def test_block_subset_comparator_locks_mean_seed_winner() -> None:
             path,
             reporting_seeds=seeds,
             search_strategy="two_stage",
+            fast_screen_validation_scope="train_inner_rolling",
         )
         best = result["best_component_models"]
         assert set(best["seed"]) == set(seeds)
@@ -670,6 +671,13 @@ def test_block_subset_comparator_locks_mean_seed_winner() -> None:
         assert fast_metrics["alpha"].eq(0.1).all()
         assert fast_metrics["learning_rate_init"].eq(0.001).all()
         assert fast_metrics["seed"].nunique() == len(seeds)
+        assert fast_metrics["screen_validation_scope"].eq(
+            "train_inner_rolling"
+        ).all()
+        assert fast_metrics["selection_data_scope"].eq(
+            "train_only_inner_rolling"
+        ).all()
+        assert fast_metrics["fold"].nunique() >= 1
         assert fast_summary.groupby("component")["selected_for_full_grid"].sum().le(4).all()
         assert result["search_results"]["block_subset_search_strategy"].eq(
             "two_stage"

@@ -21,10 +21,26 @@ dependencies = [
 test = ["pytest>=7.0"]
 vmd = ["vmdpy>=0.2"]
 varnn = ["tensorflow>=2.15"]
+flood-geo = [
+  "geopandas>=0.14",
+  "xarray>=2024.1",
+  "rasterio>=1.3",
+  "cfgrib>=0.9.10",
+  "pyarrow>=14",
+]
+flood-data = [
+  "requests>=2.31",
+  "pyshp>=2.3",
+  "shapely>=2.0",
+  "xarray>=2024.1",
+  "h5netcdf>=1.3",
+  "pyarrow>=14",
+]
 all = ["vmdpy>=0.2", "tensorflow>=2.15", "pytest>=7.0"]
 
 [project.scripts]
 vmd-ardl-ffnn-run = "vmd_ardl_ffnn.cli:main"
+flood-ardl-ffnn-run = "vmd_ardl_ffnn.flood_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

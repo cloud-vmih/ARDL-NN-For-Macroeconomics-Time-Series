@@ -38,6 +38,7 @@ PIPELINE_CHOICES = (
     "model-comparison",
     "benchmark",
     "block-proposed-benchmark",
+    "shared-mean-benchmark",
     "sensitivity",
     "vmd-ardl-select-order",
     "vmd-ardl-joint-select",
@@ -108,7 +109,8 @@ def build_experiment_config(pipeline: str, output_dir: Path) -> ExperimentConfig
             learning_rate_init=0.001,
             learning_rate_grid=(
                 (0.01, 0.001)
-                if pipeline == "block-proposed-benchmark"
+                if pipeline
+                in {"block-proposed-benchmark", "shared-mean-benchmark"}
                 else (0.001,)
             ),
             max_iter=500,
@@ -201,6 +203,14 @@ def run_pipeline(
             ),
             "comparison_metrics",
         )
+    if pipeline == "shared-mean-benchmark":
+        return (
+            experiment.run_shared_mean_benchmark(
+                csv_path,
+                seeds=paper_seeds,
+            ),
+            "comparison_metrics",
+        )
     if pipeline == "vmd-ardl-hard-ffnn":
         hard_config = replace(
             config,
@@ -256,10 +266,19 @@ def print_metrics_summary(
             "MAPE",
             "RMSE_mean",
             "RMSE_std",
+            "RMSE_median",
+            "RMSE_count",
             "MAE_mean",
             "MAE_std",
+            "MAE_median",
+            "MAE_count",
             "MAPE_mean",
+            "MAPE_std",
+            "MAPE_median",
+            "MAPE_count",
             "Directional_Accuracy",
+            "Directional_Accuracy_mean",
+            "Directional_Accuracy_std",
         )
         if col in frame.columns
     ]
@@ -279,8 +298,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=(7, 42, 123, 2024, 2025),
         help=(
-            "Reporting seeds used by benchmark/ablation, the standalone hard-FFNN "
-            "comparator, and sensitivity studies."
+            "Reporting seeds used by benchmark/ablation, shared-mean benchmark, "
+            "the standalone hard-FFNN comparator, and sensitivity studies."
         ),
     )
     parser.add_argument(
@@ -332,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         in {
             "benchmark",
             "block-proposed-benchmark",
+            "shared-mean-benchmark",
             "sensitivity",
             "vmd-ardl-hard-ffnn",
         }
@@ -349,12 +369,36 @@ def main(argv: list[str] | None = None) -> int:
         "selection_seed_aggregation": (
             "shared_mean_validation_across_reporting_seeds"
             if args.pipeline
-            in {"block-proposed-benchmark", "vmd-ardl-hard-ffnn"}
+            in {
+                "block-proposed-benchmark",
+                "shared-mean-benchmark",
+                "vmd-ardl-hard-ffnn",
+            }
             else None
         ),
         "ablation_schema_version": (
             "block_subset_proposed_v1"
             if args.pipeline == "block-proposed-benchmark"
+            else None
+        ),
+        "benchmark_model_set": (
+            (
+                "ardl_ffnn_no_vmd",
+                "vmd_ardl_block_subset_proposed",
+                "vmd_ardl_sequential_screen",
+                "vmd_ardl_joint_select",
+            )
+            if args.pipeline == "shared-mean-benchmark"
+            else None
+        ),
+        "proposed_block_subset_search_strategy": (
+            "two_stage"
+            if args.pipeline == "shared-mean-benchmark"
+            else None
+        ),
+        "proposed_fast_screen_validation_scope": (
+            "train_inner_rolling"
+            if args.pipeline == "shared-mean-benchmark"
             else None
         ),
     }
@@ -373,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.pipeline in {
         "benchmark",
         "block-proposed-benchmark",
+        "shared-mean-benchmark",
         "sensitivity",
         "vmd-ardl-hard-ffnn",
     }:
@@ -398,16 +443,21 @@ def main(argv: list[str] | None = None) -> int:
             results,
             metric_key,
             title=(
-                "Ensemble mean-prediction metrics"
-                if args.pipeline in {"benchmark", "block-proposed-benchmark"}
+                "Primary per-seed mean/std metrics"
+                if args.pipeline
+                in {
+                    "benchmark",
+                    "block-proposed-benchmark",
+                    "shared-mean-benchmark",
+                }
                 else "Metrics summary"
             ),
         )
-        if "seed_robustness_metrics" in results:
+        if "ensemble_comparison_metrics" in results:
             print_metrics_summary(
                 results,
-                "seed_robustness_metrics",
-                title="Per-seed robustness metrics (mean/std/median/count)",
+                "ensemble_comparison_metrics",
+                title="Secondary ensemble mean-prediction metrics",
             )
         write_manifest(
             run_dir,

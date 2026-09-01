@@ -162,6 +162,7 @@ def main() -> None:
             "model-comparison",
             "benchmark",
             "block-proposed-benchmark",
+            "shared-mean-benchmark",
             "sensitivity",
             "vmd-ardl-select-order",
             "vmd-ardl-joint-select",
@@ -174,6 +175,9 @@ def main() -> None:
             "'benchmark' runs the complete paper benchmark, A0-A5 ablation and DM tests; "
             "'block-proposed-benchmark' promotes the AIC block-subset two-stage "
             "workflow to Proposed, uses shared mean-seed model selection, and runs A0-A7; "
+            "'shared-mean-benchmark' compares no-VMD, current Proposed, legacy "
+            "Proposed and joint-select using one mean-seed selector protocol; "
+            "its current block-Proposed fast-screen uses train-only rolling folds; "
             "'vmd-ardl-hard-ffnn' full-grids top-3 ARDL lag orders while assigning "
             "one train-only frequency/lag-based FFNN configuration per candidate; "
             "'sensitivity' runs the predeclared one-factor-at-a-time robustness grid; "
@@ -355,6 +359,15 @@ def main() -> None:
         print("Block-proposed benchmark primary per-seed mean/std metrics:")
         print(result["comparison_metrics"].to_string(index=False))
         print("\nBlock-proposed benchmark secondary ensemble mean-prediction metrics:")
+        print(result["ensemble_comparison_metrics"].to_string(index=False))
+    elif args.pipeline == "shared-mean-benchmark":
+        result = experiment.run_shared_mean_benchmark(
+            args.data,
+            seeds=tuple(args.paper_seeds),
+        )
+        print("Shared-mean benchmark primary per-seed mean/std metrics:")
+        print(result["comparison_metrics"].to_string(index=False))
+        print("\nShared-mean benchmark secondary ensemble mean-prediction metrics:")
         print(result["ensemble_comparison_metrics"].to_string(index=False))
     elif args.pipeline == "vmd-ardl-hard-ffnn":
         hard_config = replace(
