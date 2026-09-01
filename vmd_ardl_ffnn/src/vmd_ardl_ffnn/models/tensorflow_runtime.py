@@ -19,6 +19,26 @@ def _tensorflow() -> Any:
     return tf
 
 
+def _keras_version(tf: Any) -> str:
+    """Return a Keras version across TensorFlow/Keras packaging variants.
+
+    TensorFlow 2.15 exposes ``tf.keras`` as a lazy module without a
+    ``__version__`` attribute, while the standalone ``keras`` package does.
+    Runtime metadata must not make model startup fail just because that
+    informational attribute is absent.
+    """
+    version = getattr(tf.keras, "__version__", None)
+    if version is not None:
+        return str(version)
+    try:
+        import keras
+
+        version = getattr(keras, "__version__", None)
+    except ImportError:
+        version = None
+    return str(version or "unknown")
+
+
 def select_tensorflow_device(
     config: TensorFlowRuntimeConfig,
     *,
@@ -79,7 +99,7 @@ def bootstrap_tensorflow(
     build_info = tf.sysconfig.get_build_info()
     metadata: dict[str, object] = {
         "tensorflow_version": str(tf.__version__),
-        "keras_version": str(tf.keras.__version__),
+        "keras_version": _keras_version(tf),
         "tensorflow_built_with_cuda": bool(tf.test.is_built_with_cuda()),
         "cuda_version": build_info.get("cuda_version"),
         "cudnn_version": build_info.get("cudnn_version"),
