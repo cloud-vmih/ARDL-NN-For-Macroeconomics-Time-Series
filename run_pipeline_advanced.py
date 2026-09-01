@@ -57,6 +57,7 @@ PIPELINE_CHOICES = (
     "vmd-ardl-select-order",
     "vmd-ardl-joint-select",
     "vmd-ardl-hard-ffnn",
+    "sequential-vmd-ardl-ffnn",
     "macro-benchmark",
 )
 
@@ -255,7 +256,11 @@ def run_pipeline(
             run_sensitivity_experiments(csv_path, config, seeds=paper_seeds),
             "metrics",
         )
-    if pipeline in {"vmd-ardl-select-order", "vmd-ardl-joint-select"}:
+    if pipeline in {
+        "vmd-ardl-select-order",
+        "vmd-ardl-joint-select",
+        "sequential-vmd-ardl-ffnn",
+    }:
         return experiment.run(csv_path), "final_metrics"
     raise ValueError(f"Unsupported pipeline: {pipeline}")
 

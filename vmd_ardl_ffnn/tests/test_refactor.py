@@ -134,6 +134,14 @@ def test_runner_exposes_hard_ffnn_pipeline() -> None:
     assert args.pipeline == "vmd-ardl-hard-ffnn"
 
 
+def test_runner_exposes_sequential_vmd_ardl_ffnn_pipeline() -> None:
+    runner = _runner_module()
+    args = runner.parse_args(["--pipeline", "sequential-vmd-ardl-ffnn"])
+    assert args.pipeline == "sequential-vmd-ardl-ffnn"
+    config = runner.build_experiment_config(args.pipeline, Path("out"))
+    assert config.ardl.target_lag_strategy == "ardl_select_order"
+
+
 def test_hard_ffnn_policy_maps_frequency_entropy_and_lag_load() -> None:
     index = pd.date_range("2020-01-01", periods=64, freq="MS")
     time = np.arange(64)
