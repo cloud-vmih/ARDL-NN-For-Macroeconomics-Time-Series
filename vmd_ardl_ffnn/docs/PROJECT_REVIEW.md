@@ -128,7 +128,9 @@ Default là `staged` để tránh bùng nổ số candidate khi có nhiều bi�
 
 ## 4. Model Được Build Như Thế Nào
 
-Model dự báo cuối là `NumpyFFNNRegressor`, một FFNN cài trực tiếp bằng NumPy với Adam, chuẩn hóa X/y và checkpoint theo training loss.
+Model dự báo cuối hiện là `TensorFlowFFNNRegressor`, dùng Keras/Adam, scaler
+train-only cho X/y, EarlyStopping và ReduceLROnPlateau. Tên NumPy cũ chỉ còn là
+alias phát cảnh báo để tương thích tạm thời.
 
 ### 4.1 Feature Matrix
 
@@ -152,7 +154,7 @@ FFNN wrapper làm các bước:
 
 - Fit scaler train-only cho X.
 - Fit scaler train-only cho y.
-- Train FFNN NumPy bằng Adam.
+- Train FFNN TensorFlow/Keras bằng Adam.
 - Predict xong inverse-transform y về model scale.
 
 Cấu hình chính:

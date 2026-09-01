@@ -1,5 +1,20 @@
 # VMD–ARDL–FFNN Forecasting Project
 
+Pipeline macro mới dùng TensorFlow/Keras cho FFNN và `sktime` cho VMD. Nhánh
+nhẹ mặc định không chạy model notebook:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline macro-benchmark \
+  --data macro_indicators.csv \
+  --macro-profile core-only
+```
+
+Chỉ dùng `--macro-profile full` khi cần thêm exact Kaggle reproduction, Naive,
+MLP, LSTM và GRU. Macro production mặc định yêu cầu GPU; CPU phải được chọn rõ
+bằng `--tensorflow-device cpu` cho smoke/test. Chi tiết nằm tại
+`vmd_ardl_ffnn/docs/MACRO_BENCHMARK_PLAN.md`.
+
 Project dự báo chuỗi thời gian theo giao thức rolling one-step, với pipeline chính:
 
 ```text
@@ -73,7 +88,7 @@ Cấu hình của entrypoint được khai báo trong `build_experiment_config()
 | Transform đầu vào | Log tự nhiên; mọi giá trị phải dương |
 | Split | 70% train, 15% validation, 15% test; không shuffle |
 | Forecast protocol | `rolling_one_step` |
-| VMD | 3 modes + `RES`, `alpha=2000`, self-contained backend |
+| VMD | 3 modes + `RES`, `alpha=2000`, `sktime.libs.vmdpy` backend |
 | ARDL | AIC, target lag tối đa 12, exogenous lag tối đa 6 |
 | Lag specs | Staged search, tối đa 16 specs, giữ top 3 exogenous orders |
 | Lag fast-screen | 3 expanding folds × 12 tháng, thử cả LR `0.01` và `0.001` |

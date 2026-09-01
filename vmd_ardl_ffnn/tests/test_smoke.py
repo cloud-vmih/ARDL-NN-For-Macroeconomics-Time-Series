@@ -15,6 +15,7 @@ from vmd_ardl_ffnn.config import (
     ExperimentConfig,
     FFNNConfig,
     HardFFNNPolicyConfig,
+    StationarityConfig,
     VMDConfig,
 )
 from vmd_ardl_ffnn import decomposition
@@ -30,6 +31,37 @@ requires_tensorflow = pytest.mark.skipif(
 )
 
 
+class _FastPipelineRegressor:
+    """Cheap deterministic stand-in; TensorFlow itself has dedicated tests."""
+
+    def __init__(self, **kwargs) -> None:
+        self.scaler = kwargs.get("scaler", "standard")
+        self.device_ = "/CPU:0"
+        self.n_iter_ = 1
+        self.parameter_count_ = 0
+        self.runtime_metadata_ = {"selected_device": self.device_}
+
+    def fit(self, X, y):
+        values = np.asarray(X, dtype=float)
+        target = np.asarray(y, dtype=float)
+        design = np.column_stack([np.ones(len(values)), values])
+        self.coef_ = np.linalg.pinv(design) @ target
+        self.parameter_count_ = len(self.coef_)
+        return self
+
+    def predict(self, X):
+        values = np.asarray(X, dtype=float)
+        return np.column_stack([np.ones(len(values)), values]) @ self.coef_
+
+
+@pytest.fixture(autouse=True)
+def _use_fast_regressor_for_pipeline_smoke(monkeypatch):
+    monkeypatch.setattr(
+        "vmd_ardl_ffnn.experiment_fixed.TensorFlowFFNNRegressor",
+        _FastPipelineRegressor,
+    )
+
+
 def synthetic_data(n: int = 120) -> pd.DataFrame:
     """Tạo dữ liệu giả dương cho smoke test."""
     rng = np.random.default_rng(2)
@@ -42,13 +74,16 @@ def synthetic_data(n: int = 120) -> pd.DataFrame:
 def test_vmd_decomposition_reconstructs_shape() -> None:
     """Kiểm tra VMD trả đủ component cùng độ dài chuỗi."""
     series = pd.Series(np.sin(np.linspace(0, 10, 80)) + 0.1 * np.arange(80), name="x")
-    levels = VariationalModeDecomposer(VMDConfig(modes=2, max_iterations=50)).decompose(series)
+    levels = VariationalModeDecomposer(
+        VMDConfig(modes=2, backend="self_contained", max_iterations=50)
+    ).decompose(series)
     assert set(levels) == {"VMD1", "VMD2", "RES"}
     assert all(len(component) == len(series) for component in levels.values())
 
 
-def test_vmd_library_backend_uses_optional_vmd_function(monkeypatch) -> None:
-    """Library backend should call the optional VMD function and keep component shape."""
+@pytest.mark.parametrize("backend", ["sktime", "library"])
+def test_vmd_sktime_backend_uses_sktime_vmd_function(monkeypatch, backend: str) -> None:
+    """The production backend and its legacy alias both route to sktime."""
 
     def fake_vmd(signal, alpha, tau, modes, dc, init, tolerance):
         assert np.isclose(np.mean(signal), 0.0)
@@ -60,11 +95,16 @@ def test_vmd_library_backend_uses_optional_vmd_function(monkeypatch) -> None:
         assert tolerance == 1e-7
         return np.vstack([signal * 0.25, signal * 0.75]), np.empty((0,)), np.empty((0,))
 
-    monkeypatch.setattr(decomposition, "_load_library_vmd", lambda: fake_vmd)
+    monkeypatch.setattr(decomposition, "_load_sktime_vmd", lambda: fake_vmd)
     series = pd.Series(np.linspace(1.0, 153.0, 153), name="x")
-    levels = VariationalModeDecomposer(VMDConfig(modes=2, backend="library", alpha=123.0)).decompose(series)
+    levels = VariationalModeDecomposer(VMDConfig(modes=2, backend=backend, alpha=123.0)).decompose(series)
     assert set(levels) == {"VMD1", "VMD2", "RES"}
     assert all(len(component) == len(series) for component in levels.values())
+
+
+def test_target_only_data_config_is_supported() -> None:
+    config = DataConfig(target="Y", features=(), log_transform=False)
+    assert config.features == ()
 
 
 def test_ffnn_architecture_grid_uses_feature_count() -> None:
@@ -769,6 +809,43 @@ def test_shared_vmd_component_selection_locks_one_signature_per_component() -> N
             "component_mean_validation_across_reporting_seeds_then_reconstruct"
         ).all()
         assert set(result["final_metrics"]["seed"]) == set(seeds)
+
+
+def test_target_only_vmd_shared_mean_pipeline_runs_without_exogenous_features() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "target_only.csv"
+        synthetic_data(80)[["TIME_PERIOD", "Y"]].to_csv(path, index=False)
+        config = ExperimentConfig(
+            data=DataConfig(target="Y", features=(), log_transform=False),
+            vmd=VMDConfig(modes=2, backend="sktime"),
+            ardl=ARDLSelectionConfig(
+                max_target_lag=3,
+                max_exog_lag=1,
+                target_lag_strategy="ic_topk",
+                target_lag_top_n=2,
+                exog_lag_strategy="fixed",
+            ),
+            ffnn=FFNNConfig(
+                hidden_units_candidates=(3,),
+                alpha_grid=(1e-3,),
+                seed_grid=(1,),
+                activation_grid=("tanh",),
+                learning_rate_grid=(1e-3,),
+                max_iter=1,
+                search_strategy="full_grid",
+                top_component_candidates=1,
+            ),
+            stationarity=StationarityConfig(enabled=False),
+            output_dir=Path(temp_dir) / "target_only_results",
+        )
+        result = VMDARDLFFNNExperiment(config).run_vmd_shared_mean_seed(
+            path,
+            reporting_seeds=(1,),
+            model_name="Target_Only",
+            selection_mode="component_mean_seed",
+        )
+        assert set(result["final_metrics"]["seed"]) == {1}
+        assert result["best_component_models"]["exog_lags"].map(bool).eq(False).all()
 
 
 @requires_tensorflow

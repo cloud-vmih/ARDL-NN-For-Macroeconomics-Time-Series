@@ -9,7 +9,7 @@ import pandas as pd
 
 from .flood_ardl import SequentialARDL
 from .flood_config import FloodARDLConfig, FloodDataConfig, FloodFFNNConfig
-from .models.ffnn import NumpyFFNNRegressor
+from .models.ffnn import TensorFlowFFNNRegressor
 
 
 @dataclass
@@ -70,9 +70,9 @@ class ARDLFFNNResidualForecaster:
             self.data_config.static_numeric_cols,
             self.data_config.static_categorical_cols,
         )
-        self.ffnn_: NumpyFFNNRegressor | None = None
-        self.fixed_lag_ffnn_: NumpyFFNNRegressor | None = None
-        self.ardl_guided_ffnn_: NumpyFFNNRegressor | None = None
+        self.ffnn_: TensorFlowFFNNRegressor | None = None
+        self.fixed_lag_ffnn_: TensorFlowFFNNRegressor | None = None
+        self.ardl_guided_ffnn_: TensorFlowFFNNRegressor | None = None
         self.residual_feature_names_: tuple[str, ...] = tuple()
         self.fixed_lag_feature_names_: tuple[str, ...] = tuple()
         self.ardl_guided_feature_names_: tuple[str, ...] = tuple()
@@ -144,7 +144,7 @@ class ARDLFFNNResidualForecaster:
         if not np.isfinite(X).all() or not np.isfinite(y).all():
             raise ValueError("Residual FFNN design contains non-finite values.")
         self.residual_feature_names_ = feature_names
-        self.ffnn_ = NumpyFFNNRegressor(
+        self.ffnn_ = TensorFlowFFNNRegressor(
             hidden_layer_sizes=self.ffnn_config.hidden_layer_sizes,
             alpha=self.ffnn_config.alpha,
             seed=self.ffnn_config.seed,
@@ -466,8 +466,8 @@ class ARDLFFNNResidualForecaster:
         result["state_mode"] = state_mode
         return result
 
-    def _new_ffnn(self, *, seed_offset: int = 0) -> NumpyFFNNRegressor:
-        return NumpyFFNNRegressor(
+    def _new_ffnn(self, *, seed_offset: int = 0) -> TensorFlowFFNNRegressor:
+        return TensorFlowFFNNRegressor(
             hidden_layer_sizes=self.ffnn_config.hidden_layer_sizes,
             alpha=self.ffnn_config.alpha,
             seed=self.ffnn_config.seed + seed_offset,

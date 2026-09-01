@@ -18,9 +18,16 @@ def evaluate_forecast(y_true, y_pred) -> dict[str, float]:
         directional_accuracy = float((actual_direction == predicted_direction).mean() * 100.0)
     else:
         directional_accuracy = float("nan")
+    centered_sum = float(np.sum((y_true - np.mean(y_true)) ** 2))
+    r_squared = (
+        float(1.0 - np.sum((y_true - y_pred) ** 2) / centered_sum)
+        if centered_sum > 1e-12
+        else float("nan")
+    )
     return {
         "RMSE": float(np.sqrt(np.mean((y_true - y_pred) ** 2))),
         "MAE": float(np.mean(np.abs(y_true - y_pred))),
         "MAPE": float(np.nanmean(np.abs((y_true - y_pred) / denom)) * 100.0),
+        "R2": r_squared,
         "Directional_Accuracy": directional_accuracy,
     }

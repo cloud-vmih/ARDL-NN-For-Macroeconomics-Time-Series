@@ -92,4 +92,5 @@
   - Ưu tiên hiện tại là giảm rất mạnh thời gian training, chấp nhận không duyệt toàn bộ tổ hợp.
   - Objective chọn model vẫn là validation RMSE, tie-break bằng MAE, rồi MAPE.
   - Giữ seed_grid=(7,) mặc định để giảm variance và thời gian; chỉ mở nhiều seed khi cần báo cáo robustness.
-  - Không thay đổi mô hình lõi SklearnFFNNRegressor; tối ưu tập trung vào search strategy và budget.
+  - Ghi chú sau triển khai: mô hình lõi đã chuyển sang
+    `TensorFlowFFNNRegressor`; staged search và budget vẫn giữ nguyên vai trò.

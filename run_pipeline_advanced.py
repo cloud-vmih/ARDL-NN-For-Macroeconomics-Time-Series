@@ -23,10 +23,24 @@ from vmd_ardl_ffnn.config import (
     ExperimentConfig,
     FFNNConfig,
     StationarityConfig,
+    TensorFlowRuntimeConfig,
     VMDConfig,
 )
 from vmd_ardl_ffnn.experiment import VMDARDLFFNNExperiment
 from vmd_ardl_ffnn.models.varnn import VARNNConfig, run_varnn_pipeline
+from vmd_ardl_ffnn.macro_benchmark import (
+    CORE_PIPELINES,
+    FULL_ONLY_PIPELINES,
+    NOTEBOOK_SHA256,
+    NOTEBOOK_URL,
+    build_macro_experiment_config,
+    file_sha256,
+    load_macro_dataset,
+    pipelines_for_profile,
+    run_macro_benchmark,
+    screen_macro_features,
+)
+from vmd_ardl_ffnn.models.tensorflow_runtime import bootstrap_tensorflow
 
 
 PIPELINE_MODE = "vmd-ardl-select-order"
@@ -43,6 +57,7 @@ PIPELINE_CHOICES = (
     "vmd-ardl-select-order",
     "vmd-ardl-joint-select",
     "vmd-ardl-hard-ffnn",
+    "macro-benchmark",
 )
 
 
@@ -67,7 +82,7 @@ def build_experiment_config(pipeline: str, output_dir: Path) -> ExperimentConfig
         ),
         vmd=VMDConfig(
             modes=3,
-            backend="self_contained",
+            backend="sktime",
             alpha=2000.0,
             tau=0.0,
             dc=False,
@@ -276,6 +291,11 @@ def print_metrics_summary(
             "MAPE_std",
             "MAPE_median",
             "MAPE_count",
+            "R2",
+            "R2_mean",
+            "R2_std",
+            "R2_median",
+            "R2_count",
             "Directional_Accuracy",
             "Directional_Accuracy_mean",
             "Directional_Accuracy_std",
@@ -319,15 +339,142 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "then full-grids the best four specs per component."
         ),
     )
+    parser.add_argument(
+        "--macro-profile",
+        choices=("core-only", "full"),
+        default="core-only",
+        help=(
+            "core-only runs only the five project workflows; full additionally "
+            "runs the Kaggle reproduction, Naive, MLP, LSTM, and GRU."
+        ),
+    )
+    parser.add_argument(
+        "--tensorflow-device",
+        choices=("gpu", "cpu", "auto"),
+        default="gpu",
+        help="TensorFlow device policy. macro-benchmark defaults to strict GPU.",
+    )
+    parser.add_argument("--gpu-index", type=int, default=0)
+    parser.add_argument(
+        "--ffnn-scaler",
+        choices=("standard", "minmax"),
+        default="standard",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     csv_path = args.data.resolve()
+    if args.pipeline == "macro-benchmark" and csv_path == (PROJECT_ROOT / "df_final.csv"):
+        csv_path = PROJECT_ROOT / "macro_indicators.csv"
     if not csv_path.exists():
         print(f"Dataset not found: {csv_path}", file=sys.stderr)
         return 2
+
+    if args.pipeline == "macro-benchmark":
+        runtime = TensorFlowRuntimeConfig(
+            device=args.tensorflow_device,
+            gpu_index=args.gpu_index,
+        )
+        try:
+            _, _, tensorflow_metadata = bootstrap_tensorflow(runtime)
+            macro_data = load_macro_dataset(csv_path)
+            selected_features, _ = screen_macro_features(macro_data.train)
+            provisional = build_macro_experiment_config(
+                selected_features,
+                Path("results"),
+                tensorflow=runtime,
+                scaler=args.ffnn_scaler,
+                seeds=tuple(args.paper_seeds),
+            )
+            run_dir = prepare_run_directory(
+                args.output_root, args.pipeline, provisional, args.run_id
+            )
+        except (FileExistsError, ImportError, RuntimeError, ValueError) as exc:
+            print(f"Cannot start macro pipeline: {exc}", file=sys.stderr)
+            return 2
+        config = replace(provisional, output_dir=run_dir)
+        enabled_pipelines = pipelines_for_profile(args.macro_profile)
+        metadata = {
+            "macro_profile": args.macro_profile,
+            "enabled_pipelines": enabled_pipelines,
+            "skipped_pipelines": tuple(
+                pipeline
+                for pipeline in CORE_PIPELINES + FULL_ONLY_PIPELINES
+                if pipeline not in enabled_pipelines
+            ),
+            "selected_features": selected_features,
+            "paper_seeds": tuple(args.paper_seeds),
+            "tensorflow": tensorflow_metadata,
+            "dataset_sha256": file_sha256(csv_path),
+            "notebook_source_sha256": NOTEBOOK_SHA256,
+            "notebook_url": NOTEBOOK_URL,
+            "result_scope": (
+                "internal_workflow_comparison"
+                if args.macro_profile == "core-only"
+                else "kaggle_reproduction_and_fair_comparison"
+            ),
+        }
+        write_manifest(
+            run_dir,
+            pipeline=args.pipeline,
+            dataset=csv_path,
+            config=config,
+            status="running",
+            metadata=metadata,
+        )
+        print(f"Pipeline: macro-benchmark ({args.macro_profile})")
+        print(f"TensorFlow device: {tensorflow_metadata['selected_device']}")
+        print(f"Selected train-only macro features: {selected_features}")
+        print(f"Output: {run_dir}")
+        try:
+            result = run_macro_benchmark(
+                csv_path,
+                run_dir,
+                profile=args.macro_profile,
+                tensorflow=runtime,
+                scaler=args.ffnn_scaler,
+                seeds=tuple(args.paper_seeds),
+            )
+            metadata.update(
+                enabled_pipelines=result["enabled_pipelines"],
+                skipped_pipelines=result["skipped_pipelines"],
+                dataset_sha256=result["dataset_sha256"],
+                notebook_source_sha256=result["notebook_source_sha256"],
+                notebook_url=result["notebook_url"],
+            )
+            print_metrics_summary(
+                result["project"],
+                "comparison_metrics",
+                title=(
+                    "Internal project-workflow comparison"
+                    if args.macro_profile == "core-only"
+                    else "Project-workflow comparison"
+                ),
+            )
+            write_manifest(
+                run_dir,
+                pipeline=args.pipeline,
+                dataset=csv_path,
+                config=result["config"],
+                status="success",
+                metadata=metadata,
+            )
+        except Exception as exc:
+            write_manifest(
+                run_dir,
+                pipeline=args.pipeline,
+                dataset=csv_path,
+                config=config,
+                status="failed",
+                error=f"{type(exc).__name__}: {exc}",
+                metadata=metadata,
+            )
+            traceback.print_exc()
+            return 1
+        print(f"\nPipeline completed successfully. Results: {run_dir}")
+        return 0
 
     provisional = build_experiment_config(args.pipeline, Path("results"))
     if args.pipeline == "vmd-ardl-hard-ffnn":

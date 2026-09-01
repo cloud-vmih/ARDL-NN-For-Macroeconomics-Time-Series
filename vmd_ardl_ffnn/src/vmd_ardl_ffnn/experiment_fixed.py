@@ -20,7 +20,7 @@ from .features import LagSpec
 from .hard_ffnn_policy import HardFFNNPolicy, describe_target_imfs
 from .lag_selection import ARDLOrderSelector
 from .metrics import evaluate_forecast
-from .models.ffnn import NumpyFFNNRegressor
+from .models.ffnn import TensorFlowFFNNRegressor
 from .stationarity import apply_stationarity_transform
 
 
@@ -189,7 +189,7 @@ class VMDARDLFFNNExperiment:
         activation: str | None = None,
         learning_rate_init: float | None = None,
         max_iter: int | None = None,
-    ) -> tuple[NumpyFFNNRegressor, int]:
+    ) -> tuple[TensorFlowFFNNRegressor, int]:
         """Fit FFNN cho một LagSpec và trả về model kèm số dòng train hợp lệ.
         Dữ liệu được chuyển sang ma trận supervised trước khi kiểm tra min_train.
         """
@@ -197,8 +197,8 @@ class VMDARDLFFNNExperiment:
         supervised = self._build_supervised(data, spec)
         if len(supervised) < self.config.ffnn.min_train:
             raise ValueError(f"Only {len(supervised)} training rows after lagging.")
-        # FFNN NumPy wrapper tự chuẩn hóa X và y để huấn luyện ổn định hơn.
-        model = NumpyFFNNRegressor(
+        # TensorFlow wrapper fits its scalers on this training matrix only.
+        model = TensorFlowFFNNRegressor(
             hidden_layer_sizes=tuple(int(size) for size in hidden_layer_sizes),
             alpha=alpha,
             seed=seed,
@@ -209,6 +209,15 @@ class VMDARDLFFNNExperiment:
                 else float(learning_rate_init)
             ),
             max_iter=self.config.ffnn.max_iter if max_iter is None else int(max_iter),
+            scaler=self.config.ffnn.scaler,
+            batch_size=self.config.ffnn.batch_size,
+            validation_fraction=self.config.ffnn.validation_fraction,
+            early_stopping_patience=self.config.ffnn.early_stopping_patience,
+            reduce_lr_patience=self.config.ffnn.reduce_lr_patience,
+            reduce_lr_factor=self.config.ffnn.reduce_lr_factor,
+            min_learning_rate=self.config.ffnn.min_learning_rate,
+            dropout_rate=self.config.ffnn.dropout_rate,
+            runtime=self.config.tensorflow,
         ).fit(supervised[self._feature_names(spec)].to_numpy(float), supervised[self.target].to_numpy(float))
         # Trả kèm số dòng train thật sự sau khi mất dữ liệu do lag.
         return model, len(supervised)
@@ -380,7 +389,7 @@ class VMDARDLFFNNExperiment:
         component: str,
         train_data: pd.DataFrame,
         specs: list[LagSpec],
-        prediction_fn: Callable[[NumpyFFNNRegressor, LagSpec, int], pd.DataFrame],
+        prediction_fn: Callable[[TensorFlowFFNNRegressor, LagSpec, int], pd.DataFrame],
         scoring_fn: Callable[[pd.DataFrame], dict[str, float]],
         uses_vmd: bool,
         candidate_id_start: int = 0,
@@ -449,6 +458,11 @@ class VMDARDLFFNNExperiment:
                 "search_stage": search_stage,
                 "selected_for_hyperparam_search": bool(selected_for_hyperparam_search),
                 "fast_screen_rmse": fast_screen_rmse,
+                "ffnn_backend": "tensorflow_keras",
+                "ffnn_scaler": model.scaler,
+                "ffnn_epochs_trained": model.n_iter_,
+                "ffnn_parameter_count": model.parameter_count_,
+                "tensorflow_device": model.device_,
             }
             row.update({f"Val {k}": v for k, v in scoring_fn(pred).items()})
             current_id = candidate_id
@@ -553,7 +567,7 @@ class VMDARDLFFNNExperiment:
 
     def _batch_predict_observed(
         self,
-        model: NumpyFFNNRegressor,
+        model: TensorFlowFFNNRegressor,
         observed: pd.DataFrame,
         eval_index: pd.Index,
         spec: LagSpec,
@@ -629,7 +643,7 @@ class VMDARDLFFNNExperiment:
         self,
         component: str,
         train_frame: pd.DataFrame,
-        prediction_fn: Callable[[NumpyFFNNRegressor, LagSpec, int], pd.DataFrame],
+        prediction_fn: Callable[[TensorFlowFFNNRegressor, LagSpec, int], pd.DataFrame],
         scoring_fn: Callable[[pd.DataFrame], dict[str, float]],
     ) -> tuple[tuple[int, ...], pd.DataFrame]:
         """Select target lags by cheap FFNN validation screening."""
@@ -1387,7 +1401,7 @@ class VMDARDLFFNNExperiment:
 
     def _predict_component_from_cache(
         self,
-        model: NumpyFFNNRegressor,
+        model: TensorFlowFFNNRegressor,
         component: str,
         cache: dict[pd.Timestamp, dict[str, pd.DataFrame]],
         actual_raw: pd.DataFrame,

@@ -13,7 +13,10 @@ import pandas as pd
 
 
 def _dependency_versions() -> dict[str, str | None]:
-    dependencies = ("numpy", "pandas", "statsmodels", "scikit-learn", "matplotlib", "tensorflow", "vmdpy")
+    dependencies = (
+        "numpy", "pandas", "statsmodels", "scikit-learn", "matplotlib",
+        "tensorflow", "keras", "sktime",
+    )
     resolved: dict[str, str | None] = {}
     for dependency in dependencies:
         try:

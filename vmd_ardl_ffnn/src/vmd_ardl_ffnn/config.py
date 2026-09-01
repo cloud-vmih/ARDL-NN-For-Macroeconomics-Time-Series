@@ -19,8 +19,6 @@ class DataConfig:
     def __post_init__(self) -> None:
         if not self.target:
             raise ValueError("DataConfig.target must not be empty.")
-        if not self.features:
-            raise ValueError("DataConfig.features must contain at least one feature.")
         if self.target in self.features:
             raise ValueError("DataConfig.target must not also appear in features.")
         if len(set(self.features)) != len(self.features):
@@ -36,7 +34,7 @@ class VMDConfig:
     """Cấu hình thuật toán phân rã VMD."""
 
     modes: int = 3
-    backend: str = "self_contained"
+    backend: str = "sktime"
     alpha: float = 2000.0
     tau: float = 0.0
     dc: bool = False
@@ -51,8 +49,12 @@ class VMDConfig:
             raise ValueError("VMDConfig.alpha must be > 0.")
         if self.tolerance <= 0 or self.max_iterations < 2:
             raise ValueError("VMD tolerance must be > 0 and max_iterations must be >= 2.")
-        if self.backend.replace("-", "_").lower() not in {"self_contained", "library"}:
-            raise ValueError("VMD backend must be 'self_contained' or 'library'.")
+        if self.backend.replace("-", "_").lower() not in {
+            "self_contained", "sktime", "library"
+        }:
+            raise ValueError(
+                "VMD backend must be 'self_contained', 'sktime', or legacy alias 'library'."
+            )
         if self.init not in {0, 1, 2}:
             raise ValueError("VMDConfig.init must be 0, 1, or 2.")
 
@@ -140,6 +142,14 @@ class FFNNConfig:
     lag_screen_learning_rate_grid: tuple[float, ...] = tuple()
     lag_screen_selection_rule: str = "one_standard_error"
     final_selection_scale: str = "level"
+    scaler: str = "standard"
+    batch_size: int = 16
+    validation_fraction: float = 0.20
+    early_stopping_patience: int = 15
+    reduce_lr_patience: int = 6
+    reduce_lr_factor: float = 0.5
+    min_learning_rate: float = 1e-5
+    dropout_rate: float = 0.0
 
     def __post_init__(self) -> None:
         if not self.seed_grid or not self.alpha_grid:
@@ -167,6 +177,20 @@ class FFNNConfig:
             )
         if self.final_selection_scale.replace("-", "_") not in {"level", "transformed"}:
             raise ValueError("final_selection_scale must be 'level' or 'transformed'.")
+        if self.scaler.replace("-", "_").lower() not in {"standard", "minmax"}:
+            raise ValueError("FFNN scaler must be 'standard' or 'minmax'.")
+        if self.batch_size < 1:
+            raise ValueError("FFNN batch_size must be >= 1.")
+        if not 0.0 <= self.validation_fraction < 1.0:
+            raise ValueError("FFNN validation_fraction must be in [0, 1).")
+        if self.early_stopping_patience < 1 or self.reduce_lr_patience < 1:
+            raise ValueError("FFNN callback patience values must be >= 1.")
+        if not 0.0 < self.reduce_lr_factor < 1.0:
+            raise ValueError("FFNN reduce_lr_factor must be in (0, 1).")
+        if self.min_learning_rate <= 0.0:
+            raise ValueError("FFNN min_learning_rate must be > 0.")
+        if not 0.0 <= self.dropout_rate < 1.0:
+            raise ValueError("FFNN dropout_rate must be in [0, 1).")
         if self.search_strategy.replace("-", "_") not in {"staged_halving", "full_grid"}:
             raise ValueError("FFNN search_strategy must be 'staged_halving' or 'full_grid'.")
         if not self.hidden_units_candidates and (not self.hidden_layer_candidates or not self.hidden_width_multipliers):
@@ -288,6 +312,22 @@ class StationarityConfig:
 
 
 @dataclass(frozen=True)
+class TensorFlowRuntimeConfig:
+    """TensorFlow device and determinism policy shared by neural models."""
+
+    device: str = "auto"
+    gpu_index: int = 0
+    deterministic_ops: bool = True
+    memory_growth: bool = True
+
+    def __post_init__(self) -> None:
+        if self.device.lower() not in {"auto", "cpu", "gpu"}:
+            raise ValueError("TensorFlow device must be 'auto', 'cpu', or 'gpu'.")
+        if self.gpu_index < 0:
+            raise ValueError("TensorFlow gpu_index must be >= 0.")
+
+
+@dataclass(frozen=True)
 class ExperimentConfig:
     """Cấu hình tổng hợp cho toàn bộ pipeline thực nghiệm."""
 
@@ -298,6 +338,7 @@ class ExperimentConfig:
     hard_ffnn: HardFFNNPolicyConfig = field(default_factory=HardFFNNPolicyConfig)
     diagnostics: DiagnosticsConfig = field(default_factory=DiagnosticsConfig)
     stationarity: StationarityConfig = field(default_factory=StationarityConfig)
+    tensorflow: TensorFlowRuntimeConfig = field(default_factory=TensorFlowRuntimeConfig)
     train_ratio: float = 0.70
     val_ratio: float = 0.15
     output_dir: Path = Path("results")

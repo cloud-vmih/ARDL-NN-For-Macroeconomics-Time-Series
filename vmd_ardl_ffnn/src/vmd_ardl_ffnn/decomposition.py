@@ -10,18 +10,19 @@ import pandas as pd
 from .config import VMDConfig
 
 
-def _load_library_vmd() -> Callable[..., tuple[np.ndarray, np.ndarray, np.ndarray]]:
-    """Load a VMD implementation from an optional third-party package."""
-    for module_name in ("vmdpy", "sktime.libs.vmdpy"):
-        try:
-            module = import_module(module_name)
-        except ImportError:
-            continue
-        if hasattr(module, "VMD"):
-            return module.VMD
+def _load_sktime_vmd() -> Callable[..., tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Load the maintained VMD implementation vendored by sktime."""
+    try:
+        module = import_module("sktime.libs.vmdpy")
+    except ImportError as exc:
+        raise ImportError(
+            "VMDConfig(backend='sktime') requires sktime. "
+            "Install it with `pip install .[vmd]`."
+        ) from exc
+    if hasattr(module, "VMD"):
+        return module.VMD
     raise ImportError(
-        "VMDConfig(backend='library') requires the optional VMD library. "
-        "Install it with `pip install vmdpy` or `pip install .[vmd]`."
+        "sktime.libs.vmdpy does not expose the expected VMD function."
     )
 
 
@@ -40,15 +41,15 @@ class VariationalModeDecomposer:
             raise ValueError("VMD requires at least 4 observations.")
 
         backend = self.config.backend.replace("-", "_").lower()
-        if backend == "library":
-            return self._decompose_array_with_library(x)
+        if backend in {"sktime", "library"}:
+            return self._decompose_array_with_sktime(x)
         if backend != "self_contained":
-            raise ValueError("VMD backend must be either 'self_contained' or 'library'.")
+            raise ValueError("VMD backend must be 'self_contained' or 'sktime'.")
         return self._decompose_array_self_contained(x)
 
-    def _decompose_array_with_library(self, signal: np.ndarray) -> np.ndarray:
-        """Phân rã bằng thư viện VMD/vmdpy thay cho implementation tự build."""
-        vmd = _load_library_vmd()
+    def _decompose_array_with_sktime(self, signal: np.ndarray) -> np.ndarray:
+        """Phân rã bằng sktime.libs.vmdpy thay cho implementation tự build."""
+        vmd = _load_sktime_vmd()
         x = np.asarray(signal, dtype=float)
         original_len = len(x)
         if original_len % 2:

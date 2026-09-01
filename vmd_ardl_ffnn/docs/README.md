@@ -4,6 +4,23 @@ Time-series forecasting package with chronological train/validation/test splits,
 train-only lag selection, rolling one-step VMD decomposition caches and FFNN
 forecasting.
 
+FFNN production is implemented with TensorFlow/Keras and VMD production uses
+`sktime.libs.vmdpy`. The legacy self-contained VMD backend remains an explicit
+compatibility option.
+
+The macro workflow for `macro_indicators.csv` defaults to the lightweight
+five-model internal comparison and does not run notebook MLP/LSTM/GRU models:
+
+```bash
+python ../run_pipeline_advanced.py --pipeline macro-benchmark \
+  --data ../macro_indicators.csv --macro-profile core-only
+```
+
+Use `--macro-profile full` only when the Kaggle reproduction plus Naive, MLP,
+LSTM and GRU are required. Macro production runs require a TensorFlow GPU by
+default; `--tensorflow-device cpu` is an explicit smoke/test override. See
+`MACRO_BENCHMARK_PLAN.md` for the feature and split policy.
+
 The staged FFNN workflow evaluates every ARDL lag specification with both
 learning rates over three train-only expanding folds. It retains the raw
 mean-RMSE winner plus the parsimonious one-standard-error winner before the
@@ -27,7 +44,7 @@ It runs naïve and standalone-ARDL baselines, fixed/adaptive FFNN benchmarks,
 A0–A5 ablations, seed aggregation, Diebold–Mariano tests with Holm correction,
 lag-selection summaries, runtime/search-efficiency tables and paper figures.
 The hard-config comparator is included as B7 without changing A0–A5. Use
-`--skip-varnn` when the optional TensorFlow dependency is unavailable.
+`--skip-varnn` when the VARNN comparator is not required.
 
 Both benchmark profiles report two distinct metric tables.
 `benchmark_metrics_comparison.csv` is the primary table and summarizes metrics
@@ -119,7 +136,8 @@ Run the predeclared one-factor-at-a-time robustness grid separately with
 full five-seed study.
 
 Available pipelines can be listed with `python ../run_pipeline_advanced.py --help`.
-VARNN pipelines require the optional dependency group:
+TensorFlow and sktime are installed with the production package. The legacy
+extra remains accepted for compatibility:
 
 ```bash
 pip install -e '.[varnn]'

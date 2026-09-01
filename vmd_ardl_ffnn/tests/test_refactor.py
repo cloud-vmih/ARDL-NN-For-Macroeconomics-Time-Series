@@ -14,6 +14,7 @@ from vmd_ardl_ffnn.config import (
     DataConfig,
     ExperimentConfig,
     HardFFNNPolicyConfig,
+    TensorFlowRuntimeConfig,
 )
 from vmd_ardl_ffnn.data import GenericDataLoader
 from vmd_ardl_ffnn.experiment import VMDARDLFFNNExperiment
@@ -24,7 +25,7 @@ from vmd_ardl_ffnn.hard_ffnn_policy import (
 )
 from vmd_ardl_ffnn.lag_selection import ARDLOrderSelector
 from vmd_ardl_ffnn.metrics import evaluate_forecast
-from vmd_ardl_ffnn.models.ffnn import NumpyFFNNRegressor
+from vmd_ardl_ffnn.models.ffnn import TensorFlowFFNNRegressor
 from vmd_ardl_ffnn.models.varnn import _choose_var_lag
 from vmd_ardl_ffnn.statistical_tests import holm_adjust, pairwise_dm_tests
 from vmd_ardl_ffnn.sensitivity_experiments import sensitivity_profiles
@@ -105,6 +106,26 @@ def test_runner_exposes_shared_mean_benchmark_pipeline() -> None:
     runner = _runner_module()
     args = runner.parse_args(["--pipeline", "shared-mean-benchmark"])
     assert args.pipeline == "shared-mean-benchmark"
+
+
+def test_runner_exposes_macro_profiles_and_gpu_policy() -> None:
+    runner = _runner_module()
+    args = runner.parse_args(
+        [
+            "--pipeline",
+            "macro-benchmark",
+            "--macro-profile",
+            "core-only",
+            "--tensorflow-device",
+            "gpu",
+            "--gpu-index",
+            "1",
+        ]
+    )
+    assert args.macro_profile == "core-only"
+    assert args.tensorflow_device == "gpu"
+    assert args.gpu_index == 1
+    assert "macro-benchmark" in runner.PIPELINE_CHOICES
 
 
 def test_runner_exposes_hard_ffnn_pipeline() -> None:
@@ -1061,6 +1082,7 @@ def test_shared_mean_orchestrator_runs_exact_requested_model_set(
 def test_directional_accuracy_uses_previous_actual() -> None:
     metrics = evaluate_forecast([10.0, 12.0, 11.0], [10.0, 11.0, 11.5])
     assert metrics["Directional_Accuracy"] == 100.0
+    assert metrics["R2"] == pytest.approx(0.375)
 
 
 def test_ensemble_metrics_average_predictions_before_scoring() -> None:
@@ -1090,14 +1112,18 @@ def test_ensemble_metrics_average_predictions_before_scoring() -> None:
     assert result.iloc[0]["RMSE"] == 0.0
 
 
-def test_ffnn_restores_weights_that_match_best_recorded_loss() -> None:
+def test_tensorflow_ffnn_restores_best_validation_weights() -> None:
     x = np.arange(20, dtype=float).reshape(10, 2)
     y = np.linspace(0.0, 1.0, 10)
-    model = NumpyFFNNRegressor(hidden_layer_sizes=(3,), max_iter=20, seed=3).fit(x, y)
-    scaled_x = model.x_scaler_.transform(x)
-    scaled_y = model.y_scaler_.transform(y)
-    restored_loss = model._loss(model._forward(scaled_x)[0][-1], scaled_y)
-    assert restored_loss == pytest.approx(min(model.loss_curve_))
+    model = TensorFlowFFNNRegressor(
+        hidden_layer_sizes=(3,),
+        max_iter=20,
+        seed=3,
+        runtime=TensorFlowRuntimeConfig(device="cpu"),
+    ).fit(x, y)
+    assert model.n_iter_ == len(model.history_["loss"])
+    assert model.history_["val_loss"]
+    assert np.isfinite(model.predict(x)).all()
 
 
 def test_loader_rejects_missing_calendar_period(tmp_path: Path) -> None:

@@ -199,7 +199,7 @@ def _run_block_subset_mean_seed_variant(
 
 def _aggregate_seed_metrics(seed_metrics: pd.DataFrame) -> pd.DataFrame:
     metric_columns = [
-        column for column in ("RMSE", "MAE", "MAPE", "Directional_Accuracy")
+        column for column in ("RMSE", "MAE", "MAPE", "R2", "Directional_Accuracy")
         if column in seed_metrics
     ]
     grouped = seed_metrics.groupby(["model", "pipeline", "target", "split", "scale"], dropna=False)

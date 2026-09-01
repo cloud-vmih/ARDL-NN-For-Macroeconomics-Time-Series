@@ -10,6 +10,7 @@ from .config import (
     ExperimentConfig,
     FFNNConfig,
     StationarityConfig,
+    TensorFlowRuntimeConfig,
     VMDConfig,
 )
 from .experiment import VMDARDLFFNNExperiment
@@ -29,9 +30,9 @@ def main() -> None:
     parser.add_argument("--vmd-modes", type=int, default=3)
     parser.add_argument(
         "--vmd-backend",
-        choices=["self-contained", "library"],
-        default="self-contained",
-        help="Use the package's self-contained VMD or an optional third-party VMD library.",
+        choices=["sktime", "self-contained", "library"],
+        default="sktime",
+        help="Use sktime VMD (default) or the explicit legacy self-contained backend.",
     )
     parser.add_argument("--max-target-lag", type=int, default=12)
     parser.add_argument("--max-exog-lag", type=int, default=6)
@@ -93,6 +94,10 @@ def main() -> None:
         help="Disable activation tuning and use only --activation in the FFNN search.",
     )
     parser.add_argument("--max-iter", type=int, default=500)
+    parser.add_argument("--ffnn-scaler", choices=["standard", "minmax"], default="standard")
+    parser.add_argument("--ffnn-batch-size", type=int, default=16)
+    parser.add_argument("--tensorflow-device", choices=["auto", "cpu", "gpu"], default="auto")
+    parser.add_argument("--gpu-index", type=int, default=0)
     parser.add_argument(
         "--ffnn-learning-rate-grid",
         type=float,
@@ -279,9 +284,15 @@ def main() -> None:
             ),
             lag_screen_selection_rule=args.lag_screen_selection_rule.replace("-", "_"),
             final_selection_scale=args.final_selection_scale,
+            scaler=args.ffnn_scaler,
+            batch_size=args.ffnn_batch_size,
         ),
         stationarity=replace(StationarityConfig(), enabled=not args.no_stationarity),
         output_dir=Path(args.out),
+        tensorflow=TensorFlowRuntimeConfig(
+            device=args.tensorflow_device,
+            gpu_index=args.gpu_index,
+        ),
     )
     experiment = VMDARDLFFNNExperiment(config)
 
