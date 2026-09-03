@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from dataclasses import replace
 from pathlib import Path
 import sys
@@ -368,6 +369,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _is_macro_dataset(path: Path) -> bool:
+    """Detect the Kaggle macro schema without loading the full dataset."""
+    try:
+        with path.open(newline="") as handle:
+            columns = set(next(csv.reader(handle)))
+    except (OSError, StopIteration, csv.Error):
+        return False
+    return {"date", "unemployment_rate"}.issubset(columns)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     csv_path = args.data.resolve()
@@ -463,6 +474,79 @@ def main(argv: list[str] | None = None) -> int:
                 pipeline=args.pipeline,
                 dataset=csv_path,
                 config=result["config"],
+                status="success",
+                metadata=metadata,
+            )
+        except Exception as exc:
+            write_manifest(
+                run_dir,
+                pipeline=args.pipeline,
+                dataset=csv_path,
+                config=config,
+                status="failed",
+                error=f"{type(exc).__name__}: {exc}",
+                metadata=metadata,
+            )
+            traceback.print_exc()
+            return 1
+        print(f"\nPipeline completed successfully. Results: {run_dir}")
+        return 0
+
+    # The sequential profile also supports macro_indicators.csv, but keeps its
+    # execution intentionally narrow: one VMD -> ARDL -> FFNN experiment only.
+    if args.pipeline == "sequential-vmd-ardl-ffnn" and _is_macro_dataset(csv_path):
+        runtime = TensorFlowRuntimeConfig(
+            device=args.tensorflow_device,
+            gpu_index=args.gpu_index,
+        )
+        try:
+            macro_data = load_macro_dataset(csv_path)
+            selected_features, feature_audit = screen_macro_features(macro_data.train)
+            provisional = build_macro_experiment_config(
+                selected_features,
+                Path("results"),
+                tensorflow=runtime,
+                scaler=args.ffnn_scaler,
+                seeds=tuple(args.paper_seeds),
+            )
+            run_dir = prepare_run_directory(
+                args.output_root, args.pipeline, provisional, args.run_id
+            )
+            config = replace(provisional, output_dir=run_dir)
+            prepared_csv = run_dir / "prepared_macro.csv"
+            macro_data.model_data.reset_index().to_csv(prepared_csv, index=False)
+            _, _, tensorflow_metadata = bootstrap_tensorflow(runtime)
+            metadata = {
+                "dataset_schema": "kaggle_macro",
+                "selected_features": selected_features,
+                "feature_screen_rows": len(feature_audit),
+                "tensorflow": tensorflow_metadata,
+                "execution": "single_sequential_vmd_ardl_ffnn",
+            }
+        except (FileExistsError, ImportError, RuntimeError, ValueError) as exc:
+            print(f"Cannot start sequential macro pipeline: {exc}", file=sys.stderr)
+            return 2
+        write_manifest(
+            run_dir,
+            pipeline=args.pipeline,
+            dataset=csv_path,
+            config=config,
+            status="running",
+            metadata=metadata,
+        )
+        print(f"Pipeline: {args.pipeline} (macro schema)")
+        print(f"TensorFlow device: {tensorflow_metadata['selected_device']}")
+        print(f"Selected train-only macro features: {selected_features}")
+        print(f"Output: {run_dir}")
+        try:
+            experiment = VMDARDLFFNNExperiment(config)
+            results, metric_key = experiment.run(prepared_csv), "final_metrics"
+            print_metrics_summary(results, metric_key)
+            write_manifest(
+                run_dir,
+                pipeline=args.pipeline,
+                dataset=csv_path,
+                config=config,
                 status="success",
                 metadata=metadata,
             )

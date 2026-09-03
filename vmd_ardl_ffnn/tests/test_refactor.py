@@ -142,6 +142,16 @@ def test_runner_exposes_sequential_vmd_ardl_ffnn_pipeline() -> None:
     assert config.ardl.target_lag_strategy == "ardl_select_order"
 
 
+def test_runner_detects_kaggle_macro_schema(tmp_path: Path) -> None:
+    runner = _runner_module()
+    macro = tmp_path / "macro.csv"
+    macro.write_text("date,unemployment_rate,retail_sales\n2020-01-01,3.5,100\n")
+    legacy = tmp_path / "legacy.csv"
+    legacy.write_text("TIME_PERIOD,Export_US\n2020-01-01,1\n")
+    assert runner._is_macro_dataset(macro)
+    assert not runner._is_macro_dataset(legacy)
+
+
 def test_hard_ffnn_policy_maps_frequency_entropy_and_lag_load() -> None:
     index = pd.date_range("2020-01-01", periods=64, freq="MS")
     time = np.arange(64)
