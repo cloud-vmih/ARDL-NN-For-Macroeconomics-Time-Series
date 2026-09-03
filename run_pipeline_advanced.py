@@ -16,7 +16,14 @@ PACKAGE_SRC = PROJECT_ROOT / "vmd_ardl_ffnn" / "src"
 if str(PACKAGE_SRC) not in sys.path:
     sys.path.insert(0, str(PACKAGE_SRC))
 
-from vmd_ardl_ffnn.artifacts import prepare_run_directory, write_manifest
+from vmd_ardl_ffnn.artifacts import (
+    build_resume_identity,
+    prepare_run_directory,
+    validate_resume_manifest,
+    write_csv,
+    write_manifest,
+)
+from vmd_ardl_ffnn.checkpoints import CandidateCheckpointStore
 from vmd_ardl_ffnn.config import (
     ARDLSelectionConfig,
     DataConfig,
@@ -42,9 +49,19 @@ from vmd_ardl_ffnn.macro_benchmark import (
     screen_macro_features,
 )
 from vmd_ardl_ffnn.models.tensorflow_runtime import bootstrap_tensorflow
+from vmd_ardl_ffnn.vmd_cache import ContentAddressedVMDCache
 
 
 PIPELINE_MODE = "vmd-ardl-select-order"
+# Edit this tuple when you intentionally want to change the four macro inputs.
+SEQUENTIAL_MACRO_FEATURES = (
+    "nonfarm_payrolls",
+    "initial_claims",
+    "industrial_prod",
+    "retail_sales",
+)
+SEQUENTIAL_TUNING_SEED = 7
+SEQUENTIAL_CHECKPOINT_SCHEMA_VERSION = 1
 PIPELINE_CHOICES = (
     "vmd",
     "no-vmd",
@@ -319,6 +336,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, default=PROJECT_ROOT / "results")
     parser.add_argument("--run-id", default=None, help="Optional deterministic run directory name.")
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume an existing sequential macro run. Requires --run-id.",
+    )
+    parser.add_argument(
         "--paper-seeds",
         nargs="+",
         type=int,
@@ -366,7 +388,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=("standard", "minmax"),
         default="standard",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.resume and not args.run_id:
+        parser.error("--resume requires an explicit --run-id")
+    if args.resume and args.pipeline != "sequential-vmd-ardl-ffnn":
+        parser.error("--resume is supported only by sequential-vmd-ardl-ffnn")
+    return args
 
 
 def _is_macro_dataset(path: Path) -> bool:
@@ -501,28 +528,61 @@ def main(argv: list[str] | None = None) -> int:
         )
         try:
             macro_data = load_macro_dataset(csv_path)
-            selected_features, feature_audit = screen_macro_features(macro_data.train)
+            selected_features = SEQUENTIAL_MACRO_FEATURES
+            missing_features = [
+                feature
+                for feature in selected_features
+                if feature not in macro_data.model_data.columns
+            ]
+            if missing_features:
+                raise ValueError(
+                    f"Configured sequential macro features are missing: {missing_features}"
+                )
             provisional = build_macro_experiment_config(
                 selected_features,
                 Path("results"),
                 tensorflow=runtime,
                 scaler=args.ffnn_scaler,
-                seeds=tuple(args.paper_seeds),
+                seeds=(SEQUENTIAL_TUNING_SEED,),
             )
-            run_dir = prepare_run_directory(
-                args.output_root, args.pipeline, provisional, args.run_id
+            resume_identity = build_resume_identity(
+                dataset=csv_path,
+                config=provisional,
+                selected_features=selected_features,
+                tuning_seed=SEQUENTIAL_TUNING_SEED,
+                schema_version=SEQUENTIAL_CHECKPOINT_SCHEMA_VERSION,
             )
+            if args.resume:
+                run_dir = args.output_root / args.pipeline / str(args.run_id)
+                if not run_dir.is_dir():
+                    raise ValueError(f"Resume run directory does not exist: {run_dir}")
+                validate_resume_manifest(run_dir, resume_identity)
+            else:
+                run_dir = prepare_run_directory(
+                    args.output_root, args.pipeline, provisional, args.run_id
+                )
             config = replace(provisional, output_dir=run_dir)
             prepared_csv = run_dir / "prepared_macro.csv"
-            macro_data.model_data.reset_index().to_csv(prepared_csv, index=False)
-            _, _, tensorflow_metadata = bootstrap_tensorflow(runtime)
+            write_csv(macro_data.model_data.reset_index(), prepared_csv)
             metadata = {
                 "dataset_schema": "kaggle_macro",
                 "selected_features": selected_features,
-                "feature_screen_rows": len(feature_audit),
-                "tensorflow": tensorflow_metadata,
+                "tuning_seeds": (SEQUENTIAL_TUNING_SEED,),
+                "feature_screening": "fixed_from_feature_screening_not_rerun",
                 "execution": "single_sequential_vmd_ardl_ffnn",
+                "resume": bool(args.resume),
+                "resume_identity": resume_identity,
             }
+            write_manifest(
+                run_dir,
+                pipeline=args.pipeline,
+                dataset=csv_path,
+                config=config,
+                status="running",
+                metadata=metadata,
+            )
+            _, _, tensorflow_metadata = bootstrap_tensorflow(runtime)
+            metadata["tensorflow"] = tensorflow_metadata
         except (FileExistsError, ImportError, RuntimeError, ValueError) as exc:
             print(f"Cannot start sequential macro pipeline: {exc}", file=sys.stderr)
             return 2
@@ -536,12 +596,28 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"Pipeline: {args.pipeline} (macro schema)")
         print(f"TensorFlow device: {tensorflow_metadata['selected_device']}")
-        print(f"Selected train-only macro features: {selected_features}")
+        print(f"Fixed macro features: {selected_features}")
+        print(f"Tuning seeds: {(SEQUENTIAL_TUNING_SEED,)}")
         print(f"Output: {run_dir}")
         try:
-            experiment = VMDARDLFFNNExperiment(config)
+            vmd_cache = ContentAddressedVMDCache(
+                args.output_root / "_cache" / "vmd",
+                config.vmd,
+                max_memory_entries=2,
+            )
+            candidate_checkpoints = CandidateCheckpointStore(
+                run_dir / "checkpoints" / "ffnn",
+                resume_identity,
+            )
+            experiment = VMDARDLFFNNExperiment(
+                config,
+                vmd_cache=vmd_cache,
+                candidate_checkpoints=candidate_checkpoints,
+            )
             results, metric_key = experiment.run(prepared_csv), "final_metrics"
             print_metrics_summary(results, metric_key)
+            metadata["vmd_cache"] = vars(vmd_cache.stats)
+            metadata["candidate_checkpoints"] = vars(candidate_checkpoints.stats)
             write_manifest(
                 run_dir,
                 pipeline=args.pipeline,
@@ -551,6 +627,10 @@ def main(argv: list[str] | None = None) -> int:
                 metadata=metadata,
             )
         except Exception as exc:
+            if "vmd_cache" in locals():
+                metadata["vmd_cache"] = vars(vmd_cache.stats)
+            if "candidate_checkpoints" in locals():
+                metadata["candidate_checkpoints"] = vars(candidate_checkpoints.stats)
             write_manifest(
                 run_dir,
                 pipeline=args.pipeline,

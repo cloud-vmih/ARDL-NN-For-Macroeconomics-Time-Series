@@ -12,6 +12,7 @@ import pandas as pd
 
 from .config import DataConfig, ExperimentConfig
 from .artifacts import write_csv
+from .checkpoints import CandidateCheckpointStore
 from .data import GenericDataLoader
 from .decomposition import VariationalModeDecomposer
 from .diagnostics import ForecastDiagnostics
@@ -22,6 +23,7 @@ from .lag_selection import ARDLOrderSelector
 from .metrics import evaluate_forecast
 from .models.ffnn import TensorFlowFFNNRegressor
 from .stationarity import apply_stationarity_transform
+from .vmd_cache import ContentAddressedVMDCache, VMDCacheRef
 
 
 class VMDARDLFFNNExperiment:
@@ -30,11 +32,19 @@ class VMDARDLFFNNExperiment:
     từng forecast origin và xuất các bảng forecast/metric/audit ra output_dir.
     """
 
-    def __init__(self, config: ExperimentConfig = ExperimentConfig()) -> None:
+    def __init__(
+        self,
+        config: ExperimentConfig = ExperimentConfig(),
+        *,
+        vmd_cache: ContentAddressedVMDCache | None = None,
+        candidate_checkpoints: CandidateCheckpointStore | None = None,
+    ) -> None:
         """Khởi tạo cấu hình, thư mục kết quả và các bảng trạng thái rỗng.
         Các thuộc tính có hậu tố `_` được điền trong quá trình chạy pipeline.
         """
         self.config = config
+        self.vmd_cache = vmd_cache
+        self.candidate_checkpoints = candidate_checkpoints
         # Tạo thư mục chứa toàn bộ CSV/PNG kết quả trước khi pipeline ghi file.
         self.output_dir = Path(config.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -127,6 +137,12 @@ class VMDARDLFFNNExperiment:
 
     def decompose(self, data: pd.DataFrame) -> dict[str, pd.DataFrame]:
         """Phân rã từng cột dữ liệu thành các component VMD và phần dư."""
+        if self.vmd_cache is None:
+            return self._decompose_uncached(data)
+        reference = self.vmd_cache.get_or_compute(data, self._decompose_uncached)
+        return {component: reference.load(component) for component in reference.components}
+
+    def _decompose_uncached(self, data: pd.DataFrame) -> dict[str, pd.DataFrame]:
         return VariationalModeDecomposer(self.config.vmd).decompose_frame(data)
 
     def _has_exog_lag_zero(self, spec: LagSpec) -> bool:
@@ -418,6 +434,36 @@ class VMDARDLFFNNExperiment:
             fast_screen_rmse: float | None = None,
         ) -> tuple[int | None, dict[str, Any] | None, pd.DataFrame | None]:
             nonlocal candidate_id
+            descriptor = {
+                "namespace": "ffnn_search",
+                "component": component,
+                "lag_spec": spec.label,
+                "target_lags": spec.target_lags,
+                "exog_lags": spec.exog_lags,
+                "hidden_layer_sizes": hidden_layer_sizes,
+                "alpha": float(alpha),
+                "seed": int(seed),
+                "activation": activation,
+                "learning_rate_init": float(learning_rate_init),
+                "max_iter": int(max_iter),
+                "search_stage": search_stage,
+                "uses_vmd": bool(uses_vmd),
+                "train_start": str(train_data.index.min()),
+                "train_end": str(train_data.index.max()),
+                "train_rows": len(train_data),
+            }
+            if self.candidate_checkpoints is not None:
+                completed = self.candidate_checkpoints.load(descriptor)
+                if completed is not None:
+                    stored_row, stored_prediction = completed
+                    current_id = candidate_id
+                    row = dict(stored_row)
+                    row["candidate_id"] = current_id
+                    pred = stored_prediction.copy()
+                    if "candidate_id" in pred.columns:
+                        pred["candidate_id"] = current_id
+                    candidate_id += 1
+                    return current_id, row, pred
             try:
                 model, n_train = self._fit_model(
                     train_data,
@@ -466,6 +512,8 @@ class VMDARDLFFNNExperiment:
             }
             row.update({f"Val {k}": v for k, v in scoring_fn(pred).items()})
             current_id = candidate_id
+            if self.candidate_checkpoints is not None:
+                self.candidate_checkpoints.save(descriptor, row, pred)
             candidate_id += 1
             return current_id, row, pred
 
@@ -1358,7 +1406,7 @@ class VMDARDLFFNNExperiment:
         initial_history: pd.DataFrame,
         evaluation: pd.DataFrame,
         split: str,
-    ) -> dict[pd.Timestamp, dict[str, pd.DataFrame]]:
+    ) -> dict[pd.Timestamp, dict[str, pd.DataFrame] | VMDCacheRef]:
         """Tạo cache VMD cho từng forecast origin trong validation/test.
         Mỗi origin chỉ phân rã lịch sử đã có trước thời điểm cần dự báo, sau đó
         mới append quan sát thật để chuẩn bị origin tiếp theo.
@@ -1366,10 +1414,15 @@ class VMDARDLFFNNExperiment:
         self._log(f"Creating {split} VMD origin cache ({len(evaluation)} timestamps).")
         # History bắt đầu bằng train hoặc train+validation tùy split đang cache.
         history = initial_history.copy()
-        cache: dict[pd.Timestamp, dict[str, pd.DataFrame]] = {}
+        cache: dict[pd.Timestamp, dict[str, pd.DataFrame] | VMDCacheRef] = {}
         for date, row in evaluation.iterrows():
             # Cache tại date chỉ thấy lịch sử trước date, vì row hiện tại chưa được append.
-            cache[pd.Timestamp(date)] = self.decompose(history)
+            if self.vmd_cache is None:
+                cache[pd.Timestamp(date)] = self.decompose(history)
+            else:
+                cache[pd.Timestamp(date)] = self.vmd_cache.get_or_compute(
+                    history, self._decompose_uncached
+                )
             # Sau khi tạo cache cho origin hiện tại, thêm actual để origin kế tiếp có lịch sử mới.
             history = pd.concat([history, row.to_frame().T], axis=0)
         return cache
@@ -1391,10 +1444,24 @@ class VMDARDLFFNNExperiment:
         actual_components: dict[pd.Timestamp, dict[str, float]] = {}
         for date, row in evaluation.iterrows():
             current_history = pd.concat([history, row.to_frame().T], axis=0)
-            decomposed = self.decompose(current_history)
+            if self.vmd_cache is None:
+                decomposed = self.decompose(current_history)
+                component_names = tuple(decomposed)
+            else:
+                reference = self.vmd_cache.get_or_compute(
+                    current_history, self._decompose_uncached
+                )
+                decomposed = reference
+                component_names = reference.components
             actual_components[pd.Timestamp(date)] = {
-                component: float(component_frame.loc[date, self.target])
-                for component, component_frame in decomposed.items()
+                component: float(
+                    (
+                        decomposed.load(component)
+                        if isinstance(decomposed, VMDCacheRef)
+                        else decomposed[component]
+                    ).loc[date, self.target]
+                )
+                for component in component_names
             }
             history = current_history
         return actual_components
@@ -1403,7 +1470,7 @@ class VMDARDLFFNNExperiment:
         self,
         model: TensorFlowFFNNRegressor,
         component: str,
-        cache: dict[pd.Timestamp, dict[str, pd.DataFrame]],
+        cache: dict[pd.Timestamp, dict[str, pd.DataFrame] | VMDCacheRef],
         actual_raw: pd.DataFrame,
         spec: LagSpec,
         split: str,
@@ -1416,7 +1483,12 @@ class VMDARDLFFNNExperiment:
         rows: list[dict[str, Any]] = []
         for date in actual_raw.index:
             # Lấy đúng component history đã được phân rã tại forecast origin này.
-            component_history = cache[pd.Timestamp(date)][component]
+            origin = cache[pd.Timestamp(date)]
+            component_history = (
+                origin.load(component)
+                if isinstance(origin, VMDCacheRef)
+                else origin[component]
+            )
             # _next_x tạo một hàng feature từ các lag cuối cùng trong component_history.
             predicted = float(model.predict(self._next_x(component_history, spec))[0])
             row = {
@@ -1585,6 +1657,32 @@ class VMDARDLFFNNExperiment:
             fold = int(context["fold"])
             fold_train = context["train"]
             fold_validation = context["validation"]
+            effective_seed = int(
+                self.config.ffnn.seed_grid[0] if seed is None else seed
+            )
+            descriptor = {
+                "namespace": "vmd_lag_screen_fold",
+                "component": component,
+                "fold": fold,
+                "lag_spec": spec.label,
+                "target_lags": spec.target_lags,
+                "exog_lags": spec.exog_lags,
+                "learning_rate_init": float(learning_rate),
+                "seed": effective_seed,
+                "alpha": float(self.config.ffnn.fast_alpha),
+                "activation": self.config.ffnn.activation,
+                "max_iter": int(self.config.ffnn.fast_max_iter),
+                "train_start": str(fold_train.index.min()),
+                "train_end": str(fold_train.index.max()),
+                "validation_start": str(fold_validation.index.min()),
+                "validation_end": str(fold_validation.index.max()),
+            }
+            if self.candidate_checkpoints is not None:
+                completed = self.candidate_checkpoints.load(descriptor)
+                if completed is not None:
+                    stored_row, _ = completed
+                    rows.append(stored_row)
+                    continue
             row: dict[str, Any] = {
                 "fold": fold,
                 "train_start": fold_train.index.min(),
@@ -1602,7 +1700,7 @@ class VMDARDLFFNNExperiment:
                     spec,
                     architecture,
                     float(self.config.ffnn.fast_alpha),
-                    int(self.config.ffnn.seed_grid[0] if seed is None else seed),
+                    effective_seed,
                     self.config.ffnn.activation,
                     learning_rate_init=float(learning_rate),
                     max_iter=int(self.config.ffnn.fast_max_iter),
@@ -1628,6 +1726,8 @@ class VMDARDLFFNNExperiment:
                         "error": None,
                     }
                 )
+                if self.candidate_checkpoints is not None:
+                    self.candidate_checkpoints.save(descriptor, row, prediction)
             except (ValueError, KeyError, IndexError) as exc:
                 row.update(
                     {

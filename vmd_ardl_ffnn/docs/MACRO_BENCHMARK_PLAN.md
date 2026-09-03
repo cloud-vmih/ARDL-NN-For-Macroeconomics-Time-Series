@@ -84,6 +84,27 @@ result.
   --paper-seeds 7
 ```
 
+## Nhánh sequential tiết kiệm tài nguyên
+
+`sequential-vmd-ardl-ffnn` không chạy lại feature screening. Nó dùng đúng tuple
+`SEQUENTIAL_MACRO_FEATURES` trong `run_pipeline_advanced.py` và chỉ tune seed 7.
+VMD origin được lưu theo content hash ở `results/_cache/vmd`, chỉ giữ tối đa hai
+component đã materialize trong RAM. Candidate FFNN và từng fold staged-halving
+được checkpoint trong `results/sequential-vmd-ardl-ffnn/<run-id>/checkpoints`.
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline sequential-vmd-ardl-ffnn \
+  --data macro_indicators.csv \
+  --run-id macro-sequential-01
+
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline sequential-vmd-ardl-ffnn \
+  --data macro_indicators.csv \
+  --run-id macro-sequential-01 \
+  --resume
+```
+
 ## Tiêu chí nghiệm thu
 
 - Feature screening và mọi lựa chọn model không đọc validation/test sai phạm.

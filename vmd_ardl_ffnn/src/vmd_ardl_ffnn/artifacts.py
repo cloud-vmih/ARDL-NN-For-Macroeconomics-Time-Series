@@ -47,6 +47,51 @@ def config_hash(config: Any) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:8]
 
 
+def file_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_resume_identity(
+    *,
+    dataset: str | Path,
+    config: Any,
+    selected_features: tuple[str, ...],
+    tuning_seed: int,
+    schema_version: int,
+) -> dict[str, Any]:
+    """Build the immutable identity used to accept or reject a resumed run."""
+    return {
+        "schema_version": int(schema_version),
+        "dataset": str(Path(dataset).resolve()),
+        "dataset_sha256": file_sha256(dataset),
+        "config_hash": config_hash(config),
+        "selected_features": list(selected_features),
+        "tuning_seed": int(tuning_seed),
+    }
+
+
+def validate_resume_manifest(
+    run_dir: str | Path,
+    expected_identity: dict[str, Any],
+) -> dict[str, Any]:
+    """Return an existing manifest only when its resume identity is exact."""
+    path = Path(run_dir) / "manifest.json"
+    if not path.is_file():
+        raise ValueError(f"Cannot resume without manifest: {path}")
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot read resume manifest: {path}") from exc
+    actual = manifest.get("metadata", {}).get("resume_identity")
+    if actual != _json_value(expected_identity):
+        raise ValueError("Run resume identity mismatch; use a new --run-id.")
+    return manifest
+
+
 def make_run_id(config: Any, now: datetime | None = None) -> str:
     timestamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%S%fZ")
     return f"{timestamp}_{config_hash(config)}"

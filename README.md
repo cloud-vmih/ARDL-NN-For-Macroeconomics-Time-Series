@@ -23,6 +23,26 @@ train. Cài kernel notebook nếu môi trường chưa có:
 Kết quả được ghi vào `results/macro-feature-screening/`; file
 `selected_features.json` chứa các biến gốc khuyến nghị để đưa vào pipeline.
 
+Nhánh production gọn chỉ chạy VMD–ARDL–FFNN, khóa một tuning seed và bốn feature:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline sequential-vmd-ardl-ffnn \
+  --data macro_indicators.csv \
+  --run-id macro-sequential-01
+
+# Chạy tiếp sau khi máy bị dừng; config/data phải trùng manifest cũ.
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline sequential-vmd-ardl-ffnn \
+  --data macro_indicators.csv \
+  --run-id macro-sequential-01 \
+  --resume
+```
+
+Muốn đổi bốn biến đầu vào, chỉ sửa tuple `SEQUENTIAL_MACRO_FEATURES` gần đầu
+file `run_pipeline_advanced.py`. VMD dùng cache chung tại `results/_cache/vmd`;
+checkpoint FFNN nằm trong thư mục run.
+
 Chỉ dùng `--macro-profile full` khi cần thêm exact Kaggle reproduction, Naive,
 MLP, LSTM và GRU. Macro production mặc định yêu cầu GPU; CPU phải được chọn rõ
 bằng `--tensorflow-device cpu` cho smoke/test. Chi tiết nằm tại
@@ -886,8 +906,8 @@ TensorFlow tests chỉ chạy khi interpreter hiện tại import được Tenso
     column nào bằng 0 hoặc âm.
 13. **Thiếu kỳ/NaN mặc định gây lỗi.** Xử lý dữ liệu có chủ đích trước khi chạy;
     không im lặng drop hoặc nội suy rồi quên ghi vào methodology.
-14. **`--run-id` phải duy nhất.** Nếu thư mục đã tồn tại, runner dừng để tránh ghi
-    đè kết quả.
+14. **`--run-id` phải duy nhất khi tạo run.** Chỉ nhánh sequential macro được mở
+   lại bằng `--resume --run-id ...`; runner từ chối nếu data/config khác manifest.
 15. **VARNN chạy CPU vẫn hợp lệ.** Chỉ chậm hơn GPU; không dùng `--skip-varnn` nếu
     muốn benchmark đầy đủ B0–B5.
 16. **Fixed-length rolling window chưa có.** Chỉ được tuyên bố kết quả cho
