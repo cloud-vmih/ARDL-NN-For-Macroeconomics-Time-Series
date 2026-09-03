@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
+notebook = ["jupyterlab>=4.0", "ipykernel>=6.0"]
 vmd = ["sktime>=0.38"]
 neural = ["tensorflow>=2.15"]
 varnn = ["tensorflow>=2.15"]

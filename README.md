@@ -10,6 +10,19 @@ nhẹ mặc định không chạy model notebook:
   --macro-profile core-only
 ```
 
+Notebook nghiên cứu feature độc lập nằm tại
+`notebooks/01_macro_feature_screening.ipynb`. Nó khóa validation/test, tạo các
+signal trễ forecast-safe và chọn feature bằng expanding-window validation trên
+train. Cài kernel notebook nếu môi trường chưa có:
+
+```bash
+./.venv/bin/python3 -m pip install -e './vmd_ardl_ffnn[notebook]'
+./.venv/bin/python3 -m jupyter lab notebooks/01_macro_feature_screening.ipynb
+```
+
+Kết quả được ghi vào `results/macro-feature-screening/`; file
+`selected_features.json` chứa các biến gốc khuyến nghị để đưa vào pipeline.
+
 Chỉ dùng `--macro-profile full` khi cần thêm exact Kaggle reproduction, Naive,
 MLP, LSTM và GRU. Macro production mặc định yêu cầu GPU; CPU phải được chọn rõ
 bằng `--tensorflow-device cpu` cho smoke/test. Chi tiết nằm tại
