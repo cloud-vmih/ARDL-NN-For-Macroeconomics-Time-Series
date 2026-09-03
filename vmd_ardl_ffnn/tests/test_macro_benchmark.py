@@ -115,6 +115,7 @@ def test_macro_experiment_requires_sktime_and_requested_gpu(tmp_path: Path) -> N
     assert config.tensorflow.gpu_index == 1
     assert config.ffnn.scaler == "standard"
     assert config.ffnn.seed_grid == (7, 42, 123, 2024, 2025)
+    assert config.ffnn.search_strategy == "staged_halving"
 
 
 def test_core_only_does_not_invoke_or_create_notebook_artifacts(

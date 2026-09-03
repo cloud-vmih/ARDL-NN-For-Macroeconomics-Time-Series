@@ -249,7 +249,7 @@ def build_macro_experiment_config(
             learning_rate_init=0.001,
             learning_rate_grid=(0.01, 0.001),
             max_iter=150,
-            search_strategy="full_grid",
+            search_strategy="staged_halving",
             fast_max_iter=75,
             top_k_lag_specs=4,
             top_component_candidates=3,
