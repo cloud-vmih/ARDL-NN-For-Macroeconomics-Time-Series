@@ -122,9 +122,9 @@ class FFNNConfig:
     alpha_grid: tuple[float, ...] = (1e-4, 1e-3, 1e-2, 1e-1)
     seed_grid: tuple[int, ...] = (7, 42, 123)
     activation: str = "tanh"
-    activation_grid: tuple[str, ...] = ("relu", "tanh")
-    learning_rate_init: float = 0.01
-    learning_rate_grid: tuple[float, ...] = (0.01, 0.001)
+    activation_grid: tuple[str, ...] = ("tanh",)
+    learning_rate_init: float = 0.001
+    learning_rate_grid: tuple[float, ...] = (0.001,)
     max_iter: int = 500
     min_train: int = 30
     min_val: int = 8

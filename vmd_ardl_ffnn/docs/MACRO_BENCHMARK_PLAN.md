@@ -53,6 +53,12 @@ result.
   `standard` hoặc `minmax`. Alias `NumpyFFNNRegressor` và
   `SklearnFFNNRegressor` chỉ còn để tương thích một phiên bản và phát
   `DeprecationWarning`; không có NumPy fallback.
+- FFNN/VARNN nội bộ dùng cố định activation `tanh` và learning rate `0.001`;
+  không còn grid-search hai tham số này. Cấu hình exact Kaggle reproduction
+  vẫn giữ nguyên để không làm sai benchmark nguồn.
+- ADF/KPSS chạy trên train-only với alpha 5%. Chỉ chuỗi đồng thời có ADF
+  p-value dưới 0.05 và KPSS p-value trên 0.05 mới giữ level; các chuỗi còn lại
+  dùng sai phân bậc một và được audit trong `stationarity_screen`.
 - VMD production dùng `sktime.libs.vmdpy`; `library` là alias cũ của `sktime`.
   Backend `self_contained` chỉ được giữ như lựa chọn compatibility ngoài macro.
 - Macro mặc định yêu cầu GPU rõ ràng và fail trước khi tạo run directory nếu GPU

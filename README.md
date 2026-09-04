@@ -43,6 +43,11 @@ Muốn đổi bốn biến đầu vào, chỉ sửa tuple `SEQUENTIAL_MACRO_FEAT
 file `run_pipeline_advanced.py`. VMD dùng cache chung tại `results/_cache/vmd`;
 checkpoint FFNN nằm trong thư mục run.
 
+Các model neural nội bộ mặc định chỉ dùng activation `tanh` và learning rate
+`0.001`. Macro project workflows chạy ADF/KPSS trên train-only, giữ level khi
+cả hai kiểm định đồng thuận chuỗi dừng và dùng `diff1` trong trường hợp còn lại.
+Nhóm exact Kaggle reproduction giữ nguyên cấu hình notebook gốc.
+
 Chỉ dùng `--macro-profile full` khi cần thêm exact Kaggle reproduction, Naive,
 MLP, LSTM và GRU. Macro production mặc định yêu cầu GPU; CPU phải được chọn rõ
 bằng `--tensorflow-device cpu` cho smoke/test. Chi tiết nằm tại

@@ -141,12 +141,7 @@ def build_experiment_config(pipeline: str, output_dir: Path) -> ExperimentConfig
             activation="tanh",
             activation_grid=("tanh",),
             learning_rate_init=0.001,
-            learning_rate_grid=(
-                (0.01, 0.001)
-                if pipeline
-                in {"block-proposed-benchmark", "shared-mean-benchmark"}
-                else (0.001,)
-            ),
+            learning_rate_grid=(0.001,),
             max_iter=500,
             min_train=30,
             min_val=8,
@@ -161,7 +156,7 @@ def build_experiment_config(pipeline: str, output_dir: Path) -> ExperimentConfig
             top_component_candidates=3,
             lag_screen_folds=3,
             lag_screen_validation_size=12,
-            lag_screen_learning_rate_grid=(0.01, 0.001),
+            lag_screen_learning_rate_grid=(0.001,),
             lag_screen_selection_rule="one_standard_error",
             final_selection_scale="level",
         ),
@@ -182,12 +177,12 @@ def build_varnn_config() -> VARNNConfig:
         max_lag=6,
         fixed_lag=None,
         hidden_units=32,
-        activation="sigmoid",
+        activation="tanh",
         learning_rate=1e-3,
         tune=True,
         hidden_units_grid=(32,),
-        activation_grid=("sigmoid",),
-        learning_rate_grid=(0.01, 0.001),
+        activation_grid=("tanh",),
+        learning_rate_grid=(0.001,),
         epochs=100,
         batch_size=32,
         patience=12,

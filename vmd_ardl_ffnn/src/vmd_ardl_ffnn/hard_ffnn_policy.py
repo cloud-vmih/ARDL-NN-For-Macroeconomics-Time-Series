@@ -138,7 +138,7 @@ class HardFFNNPolicy:
         "low": {
             "multipliers": (0.5,),
             "activation": "tanh",
-            "learning_rate_init": 0.01,
+            "learning_rate_init": 0.001,
             "alpha": 1e-3,
         },
         "mid": {
@@ -155,7 +155,7 @@ class HardFFNNPolicy:
         },
         "irregular": {
             "multipliers": (0.25,),
-            "activation": "relu",
+            "activation": "tanh",
             "learning_rate_init": 0.001,
             "alpha": 1e-1,
         },

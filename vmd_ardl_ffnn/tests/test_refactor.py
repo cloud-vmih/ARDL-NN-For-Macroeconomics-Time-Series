@@ -69,18 +69,22 @@ def test_runner_profiles_use_sequential_proposed_and_keep_joint_comparator() -> 
     assert hard.ardl.lag_spec_strategy == "full_product"
     assert hard.hard_ffnn.policy_version == "frequency_lag_balanced_v1"
     assert proposed.ffnn.learning_rate_grid == (0.001,)
-    assert block_proposed.ffnn.learning_rate_grid == (0.01, 0.001)
-    assert shared_mean.ffnn.learning_rate_grid == (0.01, 0.001)
+    assert block_proposed.ffnn.learning_rate_grid == (0.001,)
+    assert shared_mean.ffnn.learning_rate_grid == (0.001,)
+    assert proposed.ffnn.activation_grid == ("tanh",)
+    assert block_proposed.ffnn.activation_grid == ("tanh",)
+    assert shared_mean.ffnn.activation_grid == ("tanh",)
     assert proposed.ffnn.lag_screen_folds == 3
     assert proposed.ffnn.lag_screen_validation_size == 12
-    assert proposed.ffnn.lag_screen_learning_rates() == (0.01, 0.001)
+    assert proposed.ffnn.lag_screen_learning_rates() == (0.001,)
     assert proposed.ffnn.lag_screen_selection_rule == "one_standard_error"
     assert proposed.ffnn.final_selection_scale == "level"
     varnn = runner.build_varnn_config()
     assert varnn.tune is True
     assert varnn.hidden_units_grid == (32,)
-    assert varnn.activation_grid == ("sigmoid",)
-    assert varnn.learning_rate_grid == (0.01, 0.001)
+    assert varnn.activation == "tanh"
+    assert varnn.activation_grid == ("tanh",)
+    assert varnn.learning_rate_grid == (0.001,)
 
 
 def test_runner_returns_nonzero_for_missing_dataset(tmp_path: Path) -> None:
@@ -185,13 +189,13 @@ def test_hard_ffnn_policy_maps_frequency_entropy_and_lag_load() -> None:
     assert decisions["VMD1"].regime == "low"
     assert decisions["VMD1"].hidden_layer_sizes == (10,)
     assert decisions["VMD1"].activation == "tanh"
-    assert decisions["VMD1"].learning_rate_init == 0.01
+    assert decisions["VMD1"].learning_rate_init == 0.001
     assert decisions["VMD2"].regime == "mid"
     assert decisions["VMD2"].hidden_layer_sizes == (20, 10)
     assert decisions["VMD3"].regime == "high_structured"
     assert decisions["VMD3"].hidden_layer_sizes == (10, 5)
     assert decisions["RES"].regime == "irregular"
-    assert decisions["RES"].activation == "relu"
+    assert decisions["RES"].activation == "tanh"
     assert decisions["RES"].alpha == 0.1
 
     descriptor = descriptors.query("component == 'VMD2'").iloc[0]

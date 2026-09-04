@@ -116,6 +116,11 @@ def test_macro_experiment_requires_sktime_and_requested_gpu(tmp_path: Path) -> N
     assert config.ffnn.scaler == "standard"
     assert config.ffnn.seed_grid == (7, 42, 123, 2024, 2025)
     assert config.ffnn.search_strategy == "staged_halving"
+    assert config.ffnn.activation == "tanh"
+    assert config.ffnn.activation_grid == ("tanh",)
+    assert config.ffnn.learning_rate_grid == (0.001,)
+    assert config.ffnn.lag_screen_learning_rates() == (0.001,)
+    assert config.stationarity.enabled is True
 
 
 def test_core_only_does_not_invoke_or_create_notebook_artifacts(

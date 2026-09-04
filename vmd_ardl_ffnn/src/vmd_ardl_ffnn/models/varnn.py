@@ -28,14 +28,14 @@ class VARNNConfig:
 
     # Neural Network specific / selected parameters (default single run fallbacks)
     hidden_units: int = 32
-    activation: str = "sigmoid"
+    activation: str = "tanh"
     learning_rate: float = 1e-3
 
     # Tuning flags and grids
     tune: bool = False
     hidden_units_grid: tuple[int, ...] = (16, 32, 64)
-    activation_grid: tuple[str, ...] = ("sigmoid", "tanh", "relu")
-    learning_rate_grid: tuple[float, ...] = (0.01, 0.001)
+    activation_grid: tuple[str, ...] = ("tanh",)
+    learning_rate_grid: tuple[float, ...] = (0.001,)
 
     epochs: int = 100
     batch_size: int = 32

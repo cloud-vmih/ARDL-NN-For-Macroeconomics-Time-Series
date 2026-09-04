@@ -102,7 +102,7 @@ def main() -> None:
         "--ffnn-learning-rate-grid",
         type=float,
         nargs="+",
-        default=[0.01, 0.001],
+        default=[0.001],
         help="Learning rates compared on validation during the FFNN hyperparameter search.",
     )
     parser.add_argument(
@@ -220,10 +220,10 @@ def main() -> None:
     )
     parser.add_argument("--varnn-tune", action="store_true", help="Enable VARNN hyperparameter tuning.")
     parser.add_argument("--varnn-hidden-units-grid", type=int, nargs="+", default=[8, 16, 32, 64], help="Hidden units candidates for VARNN tuning.")
-    parser.add_argument("--varnn-activation", choices=["sigmoid", "tanh", "relu"], default="relu", help="Default activation for VARNN.")
-    parser.add_argument("--varnn-activation-grid", choices=["sigmoid", "tanh", "relu"], nargs="+", default=["sigmoid", "tanh", "relu"], help="Activation candidates for VARNN tuning.")
+    parser.add_argument("--varnn-activation", choices=["sigmoid", "tanh", "relu"], default="tanh", help="Default activation for VARNN.")
+    parser.add_argument("--varnn-activation-grid", choices=["sigmoid", "tanh", "relu"], nargs="+", default=["tanh"], help="Activation candidates for VARNN tuning.")
     parser.add_argument("--varnn-learning-rate", type=float, default=1e-3, help="Default learning rate for VARNN.")
-    parser.add_argument("--varnn-learning-rate-grid", type=float, nargs="+", default=[1e-3, 1e-2], help="Learning rate candidates for VARNN tuning.")
+    parser.add_argument("--varnn-learning-rate-grid", type=float, nargs="+", default=[1e-3], help="Learning rate candidates for VARNN tuning.")
     args = parser.parse_args()
     default_ffnn = FFNNConfig()
     activation = args.activation or default_ffnn.activation
