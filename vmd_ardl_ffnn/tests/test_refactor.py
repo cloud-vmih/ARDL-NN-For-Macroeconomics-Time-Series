@@ -48,6 +48,53 @@ def _frame(n: int = 80) -> pd.DataFrame:
     )
 
 
+def test_actual_predicted_plot_prefers_reconstructed_level_for_diff1(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import matplotlib.pyplot as plt
+
+    experiment = VMDARDLFFNNExperiment(
+        ExperimentConfig(
+            data=DataConfig(target="Y", features=("X",), log_transform=False),
+            output_dir=tmp_path,
+        )
+    )
+    forecasts = pd.DataFrame(
+        {
+            "date": pd.date_range("2024-01-01", periods=2, freq="MS"),
+            "split": ["test", "test"],
+            "actual_raw_transformed": [0.1, -0.1],
+            "predicted_reconstructed": [0.2, -0.2],
+            "actual_level": [4.1, 4.0],
+            "predicted_level": [4.2, 3.9],
+        }
+    )
+    real_subplots = plt.subplots
+    captured: dict[str, object] = {}
+
+    def tracked_subplots(*args, **kwargs):
+        figure, axes = real_subplots(*args, **kwargs)
+        captured["figure"] = figure
+        captured["axes"] = axes
+        return figure, axes
+
+    monkeypatch.setattr(plt, "subplots", tracked_subplots)
+    monkeypatch.setattr(plt, "close", lambda _figure: None)
+
+    experiment._plot_actual_predicted(
+        forecasts,
+        "test",
+        "actual_raw_transformed",
+        "predicted_reconstructed",
+        "actual_vs_predicted.png",
+    )
+
+    axes = captured["axes"]
+    np.testing.assert_allclose(axes.lines[0].get_ydata(), [4.1, 4.0])
+    np.testing.assert_allclose(axes.lines[1].get_ydata(), [4.2, 3.9])
+    assert axes.get_ylabel() == "Level"
+
+
 def test_runner_profiles_use_sequential_proposed_and_keep_joint_comparator() -> None:
     runner = _runner_module()
     proposed = runner.build_experiment_config("vmd", Path("out"))

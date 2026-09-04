@@ -105,10 +105,10 @@ def test_sequential_resume_requires_run_id_and_uses_fixed_profile() -> None:
     with pytest.raises(SystemExit):
         runner.parse_args(["--pipeline", "sequential-vmd-ardl-ffnn", "--resume"])
     assert runner.SEQUENTIAL_MACRO_FEATURES == (
-        "nonfarm_payrolls",
         "initial_claims",
+        "nonfarm_payrolls",
+        "cpi_all_items",
         "industrial_prod",
-        "retail_sales",
     )
     assert runner.SEQUENTIAL_TUNING_SEED == 7
 

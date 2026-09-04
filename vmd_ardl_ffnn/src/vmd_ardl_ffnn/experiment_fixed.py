@@ -1027,7 +1027,7 @@ class VMDARDLFFNNExperiment:
         group = forecasts[forecasts["split"].eq(split)].copy()
         if group.empty:
             return
-        if self.config.data.log_transform and {"actual_level", "predicted_level"}.issubset(group.columns):
+        if {"actual_level", "predicted_level"}.issubset(group.columns):
             # Khi đã có cột level, biểu đồ ưu tiên hiển thị đơn vị gốc.
             actual_col, predicted_col = "actual_level", "predicted_level"
         group = group.sort_values("date")

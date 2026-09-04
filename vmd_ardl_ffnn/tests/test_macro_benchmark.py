@@ -30,6 +30,7 @@ def _macro_frame() -> pd.DataFrame:
             "initial_claims": 200_000 + values,
             "nonfarm_payrolls": 100_000 + values,
             "consumer_sentiment": 80 + values / 10,
+            "cpi_all_items": 250 + values / 50,
             "industrial_prod": 90 + values / 20,
             "retail_sales": 300_000 + values,
             "building_permits": 1_000 + values,
@@ -56,6 +57,7 @@ def test_macro_loader_uses_continuous_observed_prefix_and_fixed_splits(tmp_path:
         pd.Timestamp("2021-11-01"),
         pd.Timestamp("2025-09-01"),
     ]
+    assert "cpi_all_items" in dataset.model_data.columns
 
 
 def test_macro_feature_screen_is_train_only_and_keeps_exactly_four(monkeypatch) -> None:

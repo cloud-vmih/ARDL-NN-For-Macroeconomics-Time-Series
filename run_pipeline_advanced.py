@@ -55,10 +55,10 @@ from vmd_ardl_ffnn.vmd_cache import ContentAddressedVMDCache
 PIPELINE_MODE = "vmd-ardl-select-order"
 # Edit this tuple when you intentionally want to change the four macro inputs.
 SEQUENTIAL_MACRO_FEATURES = (
-    "nonfarm_payrolls",
     "initial_claims",
+    "nonfarm_payrolls",
+    "cpi_all_items",
     "industrial_prod",
-    "retail_sales",
 )
 SEQUENTIAL_TUNING_SEED = 7
 SEQUENTIAL_CHECKPOINT_SCHEMA_VERSION = 1

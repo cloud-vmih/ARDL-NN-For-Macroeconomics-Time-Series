@@ -39,6 +39,7 @@ MACRO_FEATURE_CANDIDATES = (
     "retail_sales",
     "building_permits",
 )
+MACRO_MODEL_FEATURES = (*MACRO_FEATURE_CANDIDATES, "cpi_all_items")
 CORE_PIPELINES = (
     "ardl_ffnn_no_vmd",
     "vmd_ardl_block_subset_proposed",
@@ -88,7 +89,7 @@ def load_macro_dataset(path: str | Path) -> MacroDataset:
     """Load the complete monthly target prefix and apply the fixed fair split."""
     source = Path(path)
     raw = pd.read_csv(source)
-    required = [DATE_COLUMN, TARGET, *MACRO_FEATURE_CANDIDATES]
+    required = [DATE_COLUMN, TARGET, *MACRO_MODEL_FEATURES]
     missing = [column for column in required if column not in raw]
     if missing:
         raise ValueError(f"Macro CSV is missing required columns: {missing}")
