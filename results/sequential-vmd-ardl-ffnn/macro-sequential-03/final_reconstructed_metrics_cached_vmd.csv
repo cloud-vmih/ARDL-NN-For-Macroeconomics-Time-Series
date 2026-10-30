@@ -1,0 +1,5 @@
+dataset,model,target,uses_vmd,vmd_setting,vmd_modes,activation,split,scale,forecast_protocol,RMSE,MAE,MAPE,R2,Directional_Accuracy
+prepared_macro,VMD_ARDL_FFNN,unemployment_rate,True,cached_vmd,3,tanh,test,reconstructed_transformed,rolling_one_step,0.19190455824027838,0.1347227199228501,114.16021089817423,-1.1374576215641774,71.73913043478261
+prepared_macro,VMD_ARDL_FFNN,unemployment_rate,True,cached_vmd,3,tanh,test,level,rolling_one_step,0.19190455824027838,0.1347227199228501,3.481828959351717,0.5255911063871433,41.30434782608695
+prepared_macro,VMD_ARDL_FFNN,unemployment_rate,True,cached_vmd,3,tanh,validation,reconstructed_transformed,rolling_one_step,1.6149839100072219,0.5358694855841785,105.30815311982514,0.02089632006855735,66.66666666666666
+prepared_macro,VMD_ARDL_FFNN,unemployment_rate,True,cached_vmd,3,tanh,validation,level,rolling_one_step,1.6149839100072219,0.5358694855841785,6.452155928444506,0.5990865673919448,28.888888888888886

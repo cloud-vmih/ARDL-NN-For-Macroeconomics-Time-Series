@@ -1,0 +1,218 @@
+{
+  "run_id": "macro-sequential-03",
+  "pipeline": "sequential-vmd-ardl-ffnn",
+  "dataset": "/home/cloud/cloud/DA/Project/macro_indicators.csv",
+  "status": "success",
+  "error": null,
+  "forecast_protocol": "rolling_one_step",
+  "config_hash": "428d6c4f",
+  "config": {
+    "data": {
+      "date_col": "date",
+      "target": "unemployment_rate",
+      "features": [
+        "initial_claims",
+        "nonfarm_payrolls",
+        "cpi_all_items",
+        "industrial_prod"
+      ],
+      "freq": "MS",
+      "log_transform": false,
+      "missing_period_policy": "raise",
+      "missing_value_policy": "raise"
+    },
+    "vmd": {
+      "modes": 3,
+      "backend": "sktime",
+      "alpha": 2000.0,
+      "tau": 0.0,
+      "dc": false,
+      "init": 1,
+      "tolerance": 1e-07,
+      "max_iterations": 500
+    },
+    "ardl": {
+      "max_target_lag": 12,
+      "max_exog_lag": 6,
+      "top_n": 3,
+      "ic": "aic",
+      "trend": "c",
+      "causal": true,
+      "target_lag_strategy": "ardl_select_order",
+      "fixed_target_lags": [
+        1,
+        12
+      ],
+      "target_lag_top_n": 2,
+      "force_target_lag_1": true,
+      "target_lag_preset": "acf_pacf",
+      "target_lag_candidates": [],
+      "target_lag_acf_pacf_top_n": 3,
+      "target_lag_acf_pacf_max_lags_per_set": 3,
+      "lag_spec_strategy": "staged",
+      "max_lag_specs": 16,
+      "selection_failure_policy": "raise",
+      "exog_lag_strategy": "ardl_screen",
+      "fixed_exog_lags": [
+        1
+      ]
+    },
+    "ffnn": {
+      "hidden_layer_candidates": [
+        1,
+        2
+      ],
+      "hidden_width_multipliers": [
+        1.0,
+        0.5
+      ],
+      "hidden_units_candidates": [],
+      "alpha_grid": [
+        0.0001,
+        0.001,
+        0.01
+      ],
+      "seed_grid": [
+        7
+      ],
+      "activation": "tanh",
+      "activation_grid": [
+        "tanh"
+      ],
+      "learning_rate_init": 0.001,
+      "learning_rate_grid": [
+        0.001
+      ],
+      "max_iter": 150,
+      "min_train": 30,
+      "min_val": 8,
+      "min_test": 8,
+      "search_strategy": "staged_halving",
+      "fast_hidden_units": null,
+      "fast_hidden_layers": 1,
+      "fast_hidden_width_multiplier": 1.0,
+      "fast_alpha": 0.001,
+      "fast_max_iter": 75,
+      "top_k_lag_specs": 4,
+      "top_component_candidates": 3,
+      "lag_screen_folds": 3,
+      "lag_screen_validation_size": 12,
+      "lag_screen_learning_rate_grid": [],
+      "lag_screen_selection_rule": "one_standard_error",
+      "final_selection_scale": "level",
+      "scaler": "standard",
+      "batch_size": 16,
+      "validation_fraction": 0.2,
+      "early_stopping_patience": 15,
+      "reduce_lr_patience": 6,
+      "reduce_lr_factor": 0.5,
+      "min_learning_rate": 1e-05,
+      "dropout_rate": 0.1
+    },
+    "hard_ffnn": {
+      "policy_version": "frequency_lag_balanced_v1",
+      "low_frequency_max": 0.125,
+      "mid_frequency_max": 0.25,
+      "high_entropy_min": 0.7,
+      "irregular_roughness_min": 1.5,
+      "irregular_entropy_min": 0.65,
+      "heavy_input_ratio": 0.2,
+      "heavy_width_scale": 0.75,
+      "min_width": 4,
+      "max_width": 32,
+      "alpha_levels": [
+        0.0001,
+        0.001,
+        0.01,
+        0.1
+      ],
+      "top_component_candidates": 3
+    },
+    "diagnostics": {
+      "lags": 12,
+      "granger_maxlag": 2,
+      "alpha": 0.05
+    },
+    "stationarity": {
+      "enabled": true,
+      "alpha": 0.05,
+      "min_obs": 12
+    },
+    "tensorflow": {
+      "device": "gpu",
+      "gpu_index": 0,
+      "deterministic_ops": true,
+      "memory_growth": true
+    },
+    "train_ratio": 0.6990291262135923,
+    "val_ratio": 0.1488673139158576,
+    "output_dir": "/home/cloud/cloud/DA/Project/results/sequential-vmd-ardl-ffnn/macro-sequential-03",
+    "forecast_protocol": "rolling_one_step"
+  },
+  "metadata": {
+    "dataset_schema": "kaggle_macro",
+    "selected_features": [
+      "initial_claims",
+      "nonfarm_payrolls",
+      "cpi_all_items",
+      "industrial_prod"
+    ],
+    "tuning_seeds": [
+      7
+    ],
+    "feature_screening": "fixed_from_feature_screening_not_rerun",
+    "execution": "single_sequential_vmd_ardl_ffnn",
+    "resume": false,
+    "resume_identity": {
+      "schema_version": 1,
+      "dataset": "/home/cloud/cloud/DA/Project/macro_indicators.csv",
+      "dataset_sha256": "b9c4fec9fd0f904606e4ba62f78bf0d79fd5c37c39f09ce917ee58ba138b2840",
+      "config_hash": "428d6c4f",
+      "selected_features": [
+        "initial_claims",
+        "nonfarm_payrolls",
+        "cpi_all_items",
+        "industrial_prod"
+      ],
+      "tuning_seed": 7
+    },
+    "tensorflow": {
+      "tensorflow_version": "2.15.1",
+      "keras_version": "2.15.0",
+      "tensorflow_built_with_cuda": true,
+      "cuda_version": "12.2",
+      "cudnn_version": "8",
+      "requested_device": "gpu",
+      "selected_device": "/GPU:0",
+      "physical_gpu_count": 1,
+      "selected_gpu_name": "NVIDIA GeForce GTX 1650 with Max-Q Design",
+      "deterministic_ops": true,
+      "memory_growth": true
+    },
+    "vmd_cache": {
+      "hits": 133,
+      "misses": 130,
+      "component_loads": 11860
+    },
+    "candidate_checkpoints": {
+      "hits": 0,
+      "misses": 384,
+      "saves": 384
+    }
+  },
+  "runtime": {
+    "python": "3.11.15",
+    "platform": "Linux-7.0.13-100.fc43.x86_64-x86_64-with-glibc2.42",
+    "dependencies": {
+      "numpy": "1.26.4",
+      "pandas": "2.3.3",
+      "statsmodels": "0.14.6",
+      "scikit-learn": "1.7.2",
+      "matplotlib": "3.11.0",
+      "tensorflow": "2.15.1",
+      "keras": "2.15.0",
+      "sktime": "1.1.0"
+    }
+  },
+  "written_at_utc": "2026-09-04T09:05:10.630864+00:00"
+}

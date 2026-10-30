@@ -1,0 +1,7 @@
+split,forecast_estimand,first_model,second_model,loss,horizon,nobs,mean_loss_differential_first_minus_second,DM_statistic,pvalue,paired_mean_loss_difference_ci95_lower,paired_mean_loss_difference_ci95_upper,holm_adjusted_pvalue
+test,ensemble_mean_prediction,ardl_ffnn_no_vmd,vmd_ardl_block_subset_proposed,squared,1,33,-151331128037.3039,-1.166336539308275,0.25209758516252917,-402680493940.9619,52047442260.57594,1.0
+test,ensemble_mean_prediction,ardl_ffnn_no_vmd,vmd_ardl_joint_select,squared,1,33,-167016374176.82614,-1.1336445048468216,0.26536561384280405,-482710562322.83093,87232816648.90506,1.0
+test,ensemble_mean_prediction,ardl_ffnn_no_vmd,vmd_ardl_sequential_screen,squared,1,33,-131034793872.00107,-0.9283316008004773,0.3601854764130079,-463799198737.5935,120449925545.11899,1.0
+test,ensemble_mean_prediction,vmd_ardl_block_subset_proposed,vmd_ardl_joint_select,squared,1,33,-15685246139.522228,-0.5382867777098633,0.5941038371012625,-87717401989.67517,42584734655.54802,1.0
+test,ensemble_mean_prediction,vmd_ardl_block_subset_proposed,vmd_ardl_sequential_screen,squared,1,33,20296334165.302826,0.4619210513749558,0.6472630685391862,-92390016841.35878,113473192907.72203,1.0
+test,ensemble_mean_prediction,vmd_ardl_joint_select,vmd_ardl_sequential_screen,squared,1,33,35981580304.82505,0.7603781815749299,0.45259501898517784,-51099532324.684616,155878244894.5716,1.0

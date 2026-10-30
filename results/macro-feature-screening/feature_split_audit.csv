@@ -1,0 +1,4 @@
+split,start,end,used_for_selection
+train_selection,2000-01-01,2017-12-01,True
+validation_locked,2018-01-01,2021-10-01,False
+test_locked,2021-11-01,2026-08-01,False

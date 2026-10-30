@@ -1,0 +1,3 @@
+dataset,model,target,uses_vmd,vmd_setting,vmd_modes,activation,split,scale,forecast_protocol,RMSE,MAE,MAPE,R2,Directional_Accuracy
+prepared_macro,VMD_ARDL_FFNN,unemployment_rate,True,cached_vmd,3,"relu,tanh",test,reconstructed_transformed,rolling_one_step,0.8804992309272137,0.7754827902492833,20.819352476882703,-8.987118500819243,34.78260869565217
+prepared_macro,VMD_ARDL_FFNN,unemployment_rate,True,cached_vmd,3,"relu,tanh",validation,reconstructed_transformed,rolling_one_step,1.2444659557026527,0.604016896679304,8.82369220470639,0.7619433879952802,46.666666666666664

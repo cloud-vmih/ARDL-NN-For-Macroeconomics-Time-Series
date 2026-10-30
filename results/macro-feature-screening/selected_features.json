@@ -1,0 +1,20 @@
+{
+  "selected_base_features": [
+    "initial_claims",
+    "nonfarm_payrolls",
+    "cpi_all_items",
+    "industrial_prod",
+    "retail_sales",
+    "building_permits"
+  ],
+  "selected_engineered_signals": [
+    "initial_claims__yoy_12_lag_1",
+    "nonfarm_payrolls__mom_1_lag_1",
+    "cpi_all_items__roll_std_6_lag_1",
+    "industrial_prod__lag_1",
+    "retail_sales__mom_1_lag_1",
+    "building_permits__mom_1_lag_1"
+  ],
+  "selection_scope": "train_only_expanding_window",
+  "validation_and_test_locked": true
+}

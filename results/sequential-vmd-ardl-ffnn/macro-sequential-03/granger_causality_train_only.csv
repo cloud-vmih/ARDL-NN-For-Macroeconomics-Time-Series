@@ -1,0 +1,5 @@
+cause,effect,lag,F_stat,pvalue
+initial_claims,unemployment_rate,2,11.400736607722719,2.0034332092711435e-05
+nonfarm_payrolls,unemployment_rate,2,35.74867682384955,4.521744428267347e-14
+cpi_all_items,unemployment_rate,2,2.6180907442189447,0.07534484890400309
+industrial_prod,unemployment_rate,2,9.799306306986711,8.569339655129317e-05

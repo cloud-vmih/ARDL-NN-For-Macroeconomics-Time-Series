@@ -137,7 +137,7 @@ def build_experiment_config(pipeline: str, output_dir: Path) -> ExperimentConfig
             hidden_width_multipliers=(1.0, 0.5, 0.25),
             hidden_units_candidates=tuple(),
             alpha_grid=(1e-4, 1e-3, 1e-2, 1e-1),
-            seed_grid=(7, 42, 123),
+            seed_grid=(7, ),
             activation="tanh",
             activation_grid=("tanh",),
             learning_rate_init=0.001,
