@@ -27,33 +27,55 @@ invalid `df_final.csv` and its benchmark artifacts are outside this study.
 | Model field | FRED series | Frequency and unit | Construction |
 | --- | --- | --- | --- |
 | `unemployment_rate` | `UNRATE` | Monthly, percent, seasonally adjusted | First published value for each reference month |
-| `initial_claims` | `ICSA` | Weekly, persons, seasonally adjusted | Arithmetic mean of weekly observations whose week-ending Saturday is in the reference month |
+| `manufacturing_hours` | `AWHMAN` | Monthly, hours, seasonally adjusted | Level |
 | `nonfarm_payrolls` | `PAYEMS` | Monthly, thousands of persons, seasonally adjusted | Level |
 | `cpi_all_items` | `CPIAUCSL` | Monthly, 1982–84=100, seasonally adjusted | Level |
 | `industrial_prod` | `INDPRO` | Monthly, 2017=100, seasonally adjusted | Level |
 
-Use FRED/ALFRED observation vintages via `fred/series/observations`. Freeze each
+Use FRED/ALFRED observation vintages via `fred/series/observations`. `AWHMAN`
+replaces `HOUST` because housing starts for September–October 2013 and
+December 2018–January 2019 were unavailable at their forecast origins. `ICSA`
+also cannot support point-in-time features for the 2000–2009 training period:
+ALFRED's release history begins in May 2009.
+Freeze each
 exogenous observation for month `m` at the vintage visible at the end of month
 `m+1`, its earliest permitted use in this one-month-lag design. For target
 labels, use the initial-release value. The builder must verify that each
-`t-1` value was actually available at the forecast origin for `t`; fail and
-report any exception rather than silently shifting or imputing. Record source
+`t-1` value was actually available at the forecast origin for `t`. Require
+the exact reference month for every exogenous series. Fail on missing
+observations; do not substitute an older month, interpolate, or use a later
+vintage. Record source
 series IDs, units, aggregation, as-of dates, retrieval time, raw-response hashes
 and panel hash. Read `FRED_API_KEY` from the environment; never store it in
 artifacts or logs.
 
+Exception for the final September 2025 row: its exogenous values were delayed
+by the federal shutdown, so fetch them at the January 31, 2026 vintage and
+mark them **unused in forecasts** in the audit. All exogenous lags are at least
+one month, and October 2025 has no target label; therefore this trailing row
+cannot enter a forecast in the registered horizon. The September target label
+is likewise evaluated only after its first release. Use paced API requests
+and retry 429/5xx responses because the cold cache requires over 1,200 calls.
+
 Source references:
 
-- FRED series: `https://fred.stlouisfed.org/series/UNRATE`, `/ICSA`, `/PAYEMS`,
+- FRED series: `https://fred.stlouisfed.org/series/UNRATE`, `/AWHMAN`, `/PAYEMS`,
   `/CPIAUCSL`, `/INDPRO`.
 - FRED real-time API: `https://fred.stlouisfed.org/docs/api/fred/realtime_period.html`
   and `https://fred.stlouisfed.org/docs/api/fred/series_observations.html`.
 - BLS missing October 2025: `https://www.bls.gov/cps/methods/2025-federal-government-shutdown-impact-cps.htm`.
+- BLS delayed September 2025 release: `https://www.bls.gov/news.release/archives/empsit_11202025.htm`.
+- ALFRED ICSA history: `https://alfred.stlouisfed.org/series?seid=ICSA`.
+- BLS manufacturing workweek as a leading indicator: `https://www.bls.gov/opub/mlr/2020/article/employment-expansion-continued-in-2019-but-growth-slowed-in-several-industries.htm`.
+- Census 2013 housing-start delay: `https://www.census.gov/construction/nrc/announcements.html`.
+- Census 2018 shutdown release: `https://www.census.gov/construction/nrc/pdf/newresconst_201812.pdf`.
+- Census 2025 release history: `https://www.census.gov/construction/nrc/data/releases.html`.
+- FRED rate limit: `https://fred.stlouisfed.org/docs/api/fred/errors.html`.
 
 ## Benchmark contract
 
-Use `data/macro_us/processed/us_unemployment_2000_2025_09.csv` as the immutable
-run input with columns `date`, `unemployment_rate`, `initial_claims`,
+Use `data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv` as the immutable
+run input with columns `date`, `unemployment_rate`, `manufacturing_hours`,
 `nonfarm_payrolls`, `cpi_all_items`, `industrial_prod`. Keep four existing
 shared-mean workflows: ARDL–FFNN no VMD, VMD block-subset two-stage Proposed,
 VMD sequential screen, and VMD joint select. Add `varnn` using the existing
@@ -88,7 +110,7 @@ runner, so manifest metadata matches the actual outputs.
 
 ## Acceptance
 
-1. An offline fixture proves source-to-field mapping, weekly-claim aggregation,
+1. An offline fixture proves source-to-field mapping, monthly AWHMAN values,
    vintage cutoffs, manifest hashes and missing-month rejection.
 2. A tiny benchmark fixture proves five stochastic models plus naïve appear in
    tables, each stochastic model covers every requested seed, and all six cover

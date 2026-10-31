@@ -7,6 +7,7 @@ named model configs through the ``markets`` argument.
 
 from __future__ import annotations
 
+import argparse
 import itertools
 import os
 import warnings
@@ -824,10 +825,12 @@ class ARDLFFNNModel:
         return self
 
 
-def main() -> ARDLFFNNModel:
-    """Run a sample model from df_final.csv using target + features parameters."""
+def main(data_path: str | Path) -> ARDLFFNNModel:
+    """Run the legacy export example with an explicitly validated CSV."""
+    if "df_final.csv" in {Path(data_path).name, Path(data_path).resolve().name}:
+        raise ValueError("df_final.csv is excluded because its source compilation is invalid")
     sample = ARDLFFNNModel(
-        data_path="df_final.csv",
+        data_path=data_path,
         target="Export_US",
         features=["PCE", "US_Retail", "US_Sentiment", "USD_VND", "Import_CN"],
         name="Sample_US_Export",
@@ -844,4 +847,10 @@ def main() -> ARDLFFNNModel:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", required=True, type=Path)
+    args = parser.parse_args()
+    try:
+        main(args.data)
+    except ValueError as exc:
+        parser.error(str(exc))

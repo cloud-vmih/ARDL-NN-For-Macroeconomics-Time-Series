@@ -103,7 +103,7 @@ def test_sequential_resume_requires_run_id_and_uses_fixed_profile() -> None:
     spec.loader.exec_module(runner)
 
     with pytest.raises(SystemExit):
-        runner.parse_args(["--pipeline", "sequential-vmd-ardl-ffnn", "--resume"])
+        runner.parse_args(["--pipeline", "sequential-vmd-ardl-ffnn", "--resume", "--data", "macro_indicators.csv"])
     assert runner.SEQUENTIAL_MACRO_FEATURES == (
         "initial_claims",
         "nonfarm_payrolls",

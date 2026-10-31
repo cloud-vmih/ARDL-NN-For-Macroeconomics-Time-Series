@@ -9,7 +9,7 @@ FFNN production is implemented with TensorFlow/Keras and VMD production uses
 compatibility option.
 
 The macro workflow for `macro_indicators.csv` defaults to the lightweight
-five-model internal comparison and does not run notebook MLP/LSTM/GRU models:
+seven-workflow internal comparison and does not run notebook MLP/LSTM/GRU models:
 
 ```bash
 python ../run_pipeline_advanced.py --pipeline macro-benchmark \
@@ -30,13 +30,19 @@ level RMSE, matching the primary reported paper metric.
 The recommended project entrypoint is:
 
 ```bash
-python ../run_pipeline_advanced.py --pipeline vmd
+python ../run_pipeline_advanced.py --pipeline vmd --data /path/to/validated_legacy.csv
 ```
+
+`--data` is required for every run. `df_final.csv` is excluded because its
+source compilation is invalid. Legacy pipelines require a different audited
+CSV with the configured `TIME_PERIOD`/`Export_US` schema. The repository
+entrypoint and `vmd-ardl-ffnn-run` command use the same CLI after package installation.
 
 The paper study is available from the same entrypoint:
 
 ```bash
 python ../run_pipeline_advanced.py --pipeline benchmark \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025
 ```
 
@@ -59,6 +65,7 @@ Proposed model:
 
 ```bash
 python ../run_pipeline_advanced.py --pipeline block-proposed-benchmark \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025
 ```
 
@@ -69,17 +76,24 @@ level RMSE for no-VMD FFNN/VARNN and reconstructed-level RMSE for VMD models.
 It then refits the locked winner at every seed; it never selects a best seed or
 uses test loss for selection.
 
-For a smaller direct comparison without baselines, VARNN or ablations, run:
+For the audited US unemployment comparison, including VAR-NN, LSTM and the naïve
+reference, run:
 
 ```bash
 python ../run_pipeline_advanced.py --pipeline shared-mean-benchmark \
+  --dataset-profile us-unemployment \
+  --data ../data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --tensorflow-run-eagerly \
   --paper-seeds 7 42 123 2024 2025
 ```
 
-This profile contains exactly `ardl_ffnn_no_vmd`, the current block-subset
-Proposed, the legacy sequential Proposed, and `vmd_ardl_joint_select`. Each
-workflow locks one FFNN signature by mean validation RMSE across all reporting
-seeds before per-seed refit. Its primary table is the per-seed mean/std summary;
+This profile contains `ardl_ffnn_no_vmd`, the current block-subset Proposed,
+the legacy sequential Proposed, `vmd_ardl_joint_select`, VAR-NN, LSTM and naïve.
+Each stochastic workflow locks one configuration by mean validation RMSE across
+all reporting seeds before per-seed refit. LSTM uses target and exogenous history
+through `t-1`, with train-only scaling for selection and train+validation scaling
+for test refit. Its default grid searches 6/12 month lookbacks and 16/32 hidden
+units at learning rate `0.001`. Its primary table is the per-seed mean/std summary;
 the mean-prediction ensemble is retained only as a secondary table and for DM.
 For the current block-subset Proposed in this profile, the lightweight
 `alpha=0.1`, learning-rate `0.001` screen runs on train-only expanding folds.
@@ -105,6 +119,7 @@ The train-only hard-configuration comparator can also run independently:
 
 ```bash
 python ../run_pipeline_advanced.py --pipeline vmd-ardl-hard-ffnn \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025
 ```
 

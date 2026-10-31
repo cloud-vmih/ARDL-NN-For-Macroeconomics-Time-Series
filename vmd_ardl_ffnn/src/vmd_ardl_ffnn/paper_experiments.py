@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 from dataclasses import replace
 from pathlib import Path
 from time import perf_counter
@@ -9,15 +8,22 @@ from typing import Any
 import pandas as pd
 
 from .artifacts import write_csv
+from .benchmark_common import (
+    aggregate_seed_metrics,
+    dataset_audit,
+    efficiency_row,
+    ensemble_prediction_metrics,
+    forecast_date_coverage,
+    lag_selection_rows,
+)
 from .config import ExperimentConfig
 from .evaluation import normalize_forecasts
 from .experiment import VMDARDLFFNNExperiment
 from .hard_ffnn_experiments import (
     HARD_FFNN_MODEL,
     HARD_FFNN_PIPELINE,
-    run_hard_ffnn_variant as _run_hard_ffnn_variant,
+    run_hard_ffnn_variant,
 )
-from .metrics import evaluate_forecast
 from .models.varnn import VARNNConfig, run_varnn_pipeline
 from .paper_baselines import run_linear_ardl_baseline, run_naive_baseline
 from .paper_reporting import lag_selection_frequency, write_paper_figures
@@ -120,7 +126,7 @@ def _normalized_neural_result(
     return metrics, forecasts
 
 
-def _run_neural_variant(
+def run_neural_variant(
     csv_path: str | Path,
     config: ExperimentConfig,
     *,
@@ -195,164 +201,6 @@ def _run_block_subset_mean_seed_variant(
         predicted_col="predicted_reconstructed",
     )
     return result, metrics, forecasts, variant_config
-
-
-def _aggregate_seed_metrics(seed_metrics: pd.DataFrame) -> pd.DataFrame:
-    metric_columns = [
-        column for column in ("RMSE", "MAE", "MAPE", "R2", "Directional_Accuracy")
-        if column in seed_metrics
-    ]
-    grouped = seed_metrics.groupby(["model", "pipeline", "target", "split", "scale"], dropna=False)
-    aggregate = grouped[metric_columns].agg(["mean", "std", "median", "count"]).reset_index()
-    aggregate.columns = [
-        column if isinstance(column, str) else "_".join(part for part in column if part)
-        for column in aggregate.columns
-    ]
-    aggregate.insert(5, "estimand", "distribution_of_per_seed_metrics")
-    return aggregate
-
-
-def _ensemble_prediction_metrics(
-    forecasts: pd.DataFrame,
-    seed_metrics: pd.DataFrame,
-) -> pd.DataFrame:
-    """Score the date-wise mean prediction across seeds for every pipeline."""
-    if forecasts.empty:
-        return pd.DataFrame()
-    group_columns = ["pipeline", "split", "scale", "date"]
-    actual_counts = forecasts.groupby(group_columns)["actual"].nunique(dropna=False)
-    if actual_counts.gt(1).any():
-        raise ValueError(
-            "Cannot score ensemble predictions because actual values differ "
-            "within a pipeline/split/date."
-        )
-    ensemble = (
-        forecasts.groupby(group_columns, as_index=False)
-        .agg(
-            actual=("actual", "first"),
-            predicted=("predicted", "mean"),
-            ensemble_member_count=("seed", "nunique"),
-        )
-    )
-    ensemble["ensemble_member_count"] = ensemble[
-        "ensemble_member_count"
-    ].clip(lower=1)
-    metadata = (
-        seed_metrics.groupby("pipeline", as_index=False)
-        .agg(model=("model", "first"), target=("target", "first"))
-        .set_index("pipeline")
-    )
-    rows: list[dict[str, Any]] = []
-    for (pipeline, split, scale), frame in ensemble.groupby(
-        ["pipeline", "split", "scale"],
-        sort=True,
-    ):
-        metrics = evaluate_forecast(frame["actual"], frame["predicted"])
-        rows.append(
-            {
-                "model": metadata.loc[pipeline, "model"],
-                "pipeline": pipeline,
-                "target": metadata.loc[pipeline, "target"],
-                "split": split,
-                "scale": scale,
-                "estimand": "ensemble_mean_prediction",
-                "ensemble_member_count": int(
-                    frame["ensemble_member_count"].max()
-                ),
-                **metrics,
-            }
-        )
-    return pd.DataFrame(rows).sort_values(
-        ["pipeline", "split", "scale"]
-    ).reset_index(drop=True)
-
-
-def _lag_count(value: Any) -> int:
-    if isinstance(value, str):
-        try:
-            value = ast.literal_eval(value)
-        except (SyntaxError, ValueError):
-            return 0
-    if isinstance(value, dict):
-        return sum(len(tuple(lags)) for lags in value.values())
-    if isinstance(value, (tuple, list, set)):
-        return len(value)
-    return 0
-
-
-def _lag_selection_rows(
-    result: dict[str, pd.DataFrame],
-    *,
-    pipeline: str,
-    seed: int,
-) -> pd.DataFrame:
-    best = result.get("best_component_models", pd.DataFrame()).copy()
-    if best.empty:
-        return pd.DataFrame()
-    if "seed" in best.columns:
-        best = best[best["seed"].eq(seed)].copy()
-        best = best.rename(columns={"seed": "ffnn_seed"})
-    best.insert(0, "pipeline", pipeline)
-    best.insert(1, "seed", seed)
-    best["target_lag_count"] = best["target_lags"].map(_lag_count)
-    best["exogenous_lag_count"] = best["exog_lags"].map(_lag_count)
-    best["ffnn_input_dimension"] = best["target_lag_count"] + best["exogenous_lag_count"]
-    columns = [
-        "pipeline", "seed", "component", "target_lags", "exog_lags", "lag_spec",
-        "target_lag_count", "exogenous_lag_count", "ffnn_input_dimension",
-        "hidden_layer_sizes", "alpha", "ffnn_seed", "activation", "learning_rate_init",
-    ]
-    return best[[column for column in columns if column in best.columns]]
-
-
-def _efficiency_row(
-    result: dict[str, pd.DataFrame],
-    config: ExperimentConfig,
-    *,
-    pipeline: str,
-    seed: int | None,
-    elapsed_seconds: float,
-) -> dict[str, Any]:
-    orders = result.get("ardl_orders", pd.DataFrame())
-    best = result.get("best_component_models", pd.DataFrame())
-    components = max(1, int(best["component"].nunique())) if "component" in best else 1
-    theoretical = int(config.ardl.max_exog_lag) ** len(config.data.features) * components
-    if not orders.empty and "feature" in orders:
-        retained = int(orders["feature"].eq("__ffnn_combo__").sum())
-    else:
-        retained = 0
-    search = result.get("component_search_results", result.get("search_results", pd.DataFrame()))
-    lag_screen = result.get("lag_screen_fold_metrics", pd.DataFrame())
-    block_subset_fast_screen = result.get(
-        "block_subset_fast_screen_metrics",
-        pd.DataFrame(),
-    )
-    evaluated_fits = (
-        int(len(search))
-        + int(len(lag_screen))
-        + int(len(block_subset_fast_screen))
-    )
-    timing = result.get("timing", pd.DataFrame())
-    phase = timing.iloc[0].to_dict() if isinstance(timing, pd.DataFrame) and not timing.empty else {}
-    reduction = (
-        100.0 * (theoretical - retained) / theoretical
-        if theoretical > 0 and retained <= theoretical
-        else float("nan")
-    )
-    return {
-        "pipeline": pipeline,
-        "seed": seed,
-        "runtime_seconds": elapsed_seconds,
-        "ardl_selection_seconds": phase.get("ardl_selection_seconds"),
-        "vmd_cache_seconds": phase.get("vmd_cache_seconds"),
-        "ffnn_search_seconds": phase.get("ffnn_search_seconds"),
-        "refit_forecast_seconds": phase.get("refit_forecast_seconds"),
-        "component_count": components,
-        "theoretical_full_product_lag_specs": theoretical,
-        "retained_lag_specs_after_ardl": retained,
-        "lag_search_reduction_pct": reduction,
-        "evaluated_ffnn_fits": evaluated_fits,
-    }
 
 
 def _study_settings(
@@ -490,80 +338,6 @@ def _study_settings(
     return pd.DataFrame(rows)
 
 
-def _dataset_audit(
-    csv_path: str | Path,
-    config: ExperimentConfig,
-    output_dir: Path,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    experiment = VMDARDLFFNNExperiment(replace(config, output_dir=output_dir / "study_audit"))
-    data = experiment.load_data(csv_path)
-    train, validation, test = experiment.split_raw_data(data)
-    experiment._apply_stationarity_transform(data, train)
-    dataset = pd.DataFrame(
-        [
-            {
-                "variable": variable,
-                "role": "target" if variable == config.data.target else "exogenous",
-                "frequency": config.data.freq,
-                "log_transform": config.data.log_transform,
-                "stationarity_transform": experiment.transform_info_.get(variable, "level"),
-                "n_observations": len(data),
-                "sample_start": data.index.min(),
-                "sample_end": data.index.max(),
-            }
-            for variable in (config.data.target, *config.data.features)
-        ]
-    )
-    splits = pd.DataFrame(
-        [
-            {
-                "split": name,
-                "n_observations": len(frame),
-                "start": frame.index.min(),
-                "end": frame.index.max(),
-            }
-            for name, frame in (("train", train), ("validation", validation), ("test", test))
-        ]
-    )
-    stationarity = (
-        experiment.stationarity_screen_.copy()
-        if experiment.stationarity_screen_ is not None
-        else pd.DataFrame()
-    )
-    return dataset, splits, stationarity
-
-
-def _forecast_date_coverage(forecasts: pd.DataFrame) -> pd.DataFrame:
-    rows: list[dict[str, Any]] = []
-    for split, split_frame in forecasts.groupby("split", sort=False):
-        date_sets = {
-            pipeline: set(pd.to_datetime(group["date"]))
-            for pipeline, group in split_frame.groupby("pipeline", sort=True)
-        }
-        common = set.intersection(*date_sets.values()) if date_sets else set()
-        union = set.union(*date_sets.values()) if date_sets else set()
-        for pipeline, dates in date_sets.items():
-            rows.append(
-                {
-                    "pipeline": pipeline,
-                    "split": split,
-                    "n_dates": len(dates),
-                    "common_date_count": len(common),
-                    "union_date_count": len(union),
-                    "same_dates_for_all_models": dates == union == common,
-                    "start": min(dates) if dates else pd.NaT,
-                    "end": max(dates) if dates else pd.NaT,
-                }
-            )
-    coverage = pd.DataFrame(rows)
-    if not coverage.empty and not coverage["same_dates_for_all_models"].all():
-        mismatches = coverage.loc[
-            ~coverage["same_dates_for_all_models"], ["pipeline", "split", "n_dates"]
-        ].to_dict("records")
-        raise ValueError(f"Benchmark models do not share identical forecast dates: {mismatches}")
-    return coverage
-
-
 def run_paper_experiments(
     csv_path: str | Path,
     config: ExperimentConfig,
@@ -584,7 +358,7 @@ def run_paper_experiments(
         )
     root = Path(config.output_dir)
     root.mkdir(parents=True, exist_ok=True)
-    dataset_summary, split_summary, stationarity_summary = _dataset_audit(csv_path, config, root)
+    dataset_summary, split_summary, stationarity_summary = dataset_audit(csv_path, config, root)
     metric_frames: list[pd.DataFrame] = []
     forecast_frames: list[pd.DataFrame] = []
     lag_frames: list[pd.DataFrame] = []
@@ -642,7 +416,7 @@ def run_paper_experiments(
         variant_results[pipeline] = []
         for seed in seeds:
             started = perf_counter()
-            result, metrics, forecasts = _run_neural_variant(
+            result, metrics, forecasts = run_neural_variant(
                 csv_path,
                 config,
                 pipeline=pipeline,
@@ -653,7 +427,7 @@ def run_paper_experiments(
             variant_results[pipeline].append(result)
             metric_frames.append(metrics)
             forecast_frames.append(forecasts)
-            lag_frames.append(_lag_selection_rows(result, pipeline=pipeline, seed=seed))
+            lag_frames.append(lag_selection_rows(result, pipeline=pipeline, seed=seed))
             fold_metrics = result.get("lag_screen_fold_metrics", pd.DataFrame())
             if not fold_metrics.empty:
                 lag_screen_fold_frames.append(
@@ -665,7 +439,7 @@ def run_paper_experiments(
                     stability.assign(pipeline=pipeline, seed=seed)
                 )
             efficiency_rows.append(
-                _efficiency_row(
+                efficiency_row(
                     result,
                     config,
                     pipeline=pipeline,
@@ -689,14 +463,14 @@ def run_paper_experiments(
     forecast_frames.append(block_forecasts)
     for seed in seeds:
         lag_frames.append(
-            _lag_selection_rows(
+            lag_selection_rows(
                 block_result,
                 pipeline=BLOCK_SUBSET_PIPELINE,
                 seed=seed,
             )
         )
     efficiency_rows.append(
-        _efficiency_row(
+        efficiency_row(
             block_result,
             block_config,
             pipeline=BLOCK_SUBSET_PIPELINE,
@@ -707,7 +481,7 @@ def run_paper_experiments(
 
     started = perf_counter()
     hard_result, hard_metrics, hard_forecasts, hard_config = (
-        _run_hard_ffnn_variant(
+        run_hard_ffnn_variant(
             csv_path,
             config,
             seeds=tuple(seeds),
@@ -719,13 +493,13 @@ def run_paper_experiments(
     forecast_frames.append(hard_forecasts)
     for seed in seeds:
         lag_frames.append(
-            _lag_selection_rows(
+            lag_selection_rows(
                 hard_result,
                 pipeline=HARD_FFNN_PIPELINE,
                 seed=seed,
             )
         )
-    hard_efficiency = _efficiency_row(
+    hard_efficiency = efficiency_row(
         hard_result,
         hard_config,
         pipeline=HARD_FFNN_PIPELINE,
@@ -803,12 +577,12 @@ def run_paper_experiments(
 
     seed_metrics = pd.concat(metric_frames, ignore_index=True, sort=False)
     forecasts = pd.concat(forecast_frames, ignore_index=True, sort=False)
-    aggregate_metrics = _aggregate_seed_metrics(seed_metrics)
+    aggregate_metrics = aggregate_seed_metrics(seed_metrics)
     benchmark_forecasts = forecasts[forecasts["pipeline"].isin(BENCHMARK_PIPELINES)].copy()
     benchmark_seed_robustness = aggregate_metrics[
         aggregate_metrics["pipeline"].isin(BENCHMARK_PIPELINES)
     ].copy()
-    benchmark_ensemble_metrics = _ensemble_prediction_metrics(
+    benchmark_ensemble_metrics = ensemble_prediction_metrics(
         benchmark_forecasts,
         seed_metrics,
     )
@@ -816,7 +590,7 @@ def run_paper_experiments(
     # random initializations.  The mean-prediction ensemble remains an
     # explicitly named secondary artifact.
     benchmark_metrics = benchmark_seed_robustness
-    date_coverage = _forecast_date_coverage(benchmark_forecasts)
+    date_coverage = forecast_date_coverage(benchmark_forecasts)
     ablation_metrics = aggregate_metrics[aggregate_metrics["pipeline"].isin(ABLATION_IDS)].copy()
     ablation_metrics.insert(0, "ablation_id", ablation_metrics["pipeline"].map(ABLATION_IDS))
     ablation_forecasts = forecasts[forecasts["pipeline"].isin(ABLATION_IDS)].copy()
@@ -863,7 +637,7 @@ def run_paper_experiments(
     write_csv(date_coverage, root / "paper_forecast_date_coverage.csv")
     write_csv(aggregate_metrics, root / "paper_metrics_summary.csv")
     write_csv(
-        _ensemble_prediction_metrics(forecasts, seed_metrics),
+        ensemble_prediction_metrics(forecasts, seed_metrics),
         root / "paper_ensemble_metrics_summary.csv",
     )
     write_csv(forecasts, root / "paper_forecasts.csv")

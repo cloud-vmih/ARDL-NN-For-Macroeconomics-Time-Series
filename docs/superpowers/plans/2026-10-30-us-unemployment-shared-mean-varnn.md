@@ -13,8 +13,10 @@
 ## Global Constraints
 
 - `df_final.csv` and all results derived from it are excluded from the new study.
-- Target is FRED `UNRATE`; exogenous series are `ICSA`, `PAYEMS`, `CPIAUCSL`, `INDPRO`.
+- Target is FRED `UNRATE`; exogenous series are `AWHMAN`, `PAYEMS`, `CPIAUCSL`, `INDPRO`. ALFRED's ICSA vintages begin in May 2009, so ICSA cannot be used for the registered 2000–2025 point-in-time panel.
 - Forecast origin is the end of reference month `t` in New York; all model inputs must have been available by that origin and be dated no later than `t-1`.
+- September 2025's exogenous cells are terminal bookkeeping only: fetch their January 31, 2026 vintage, mark them unused in forecasts, and enforce positive feature lags. INDPRO was still unavailable in the November 30 vintage because releases were delayed by the shutdown.
+- `AWHMAN` replaces `HOUST`: housing starts were unavailable at four forecast origins (September–October 2013 and December 2018–January 2019). Every exogenous series must use its exact reference month; no older observation is substituted.
 - Main panel is monthly January 2000–September 2025, with 216 train, 46 validation and 47 test observations. Do not impute October 2025.
 - Five stochastic workflows use seeds `(7, 42, 123, 2024, 2025)` and one shared validation-selected signature per workflow. The naïve reference has no seed.
 - Do not select a Proposed method or revise feature rules using test results.
@@ -27,7 +29,7 @@
 | File | Responsibility |
 | --- | --- |
 | `vmd_ardl_ffnn/src/vmd_ardl_ffnn/macro_fred_source.py` | FRED request/parse/cache and source-series contract |
-| `vmd_ardl_ffnn/src/vmd_ardl_ffnn/macro_fred_panel.py` | Monthly vintage panel, weekly ICSA aggregation, availability audit |
+| `vmd_ardl_ffnn/src/vmd_ardl_ffnn/macro_fred_panel.py` | Monthly vintage panel and availability audit |
 | `vmd_ardl_ffnn/src/vmd_ardl_ffnn/shared_mean_benchmark_experiments.py` | Six-model comparison, coverage and reporting |
 | `vmd_ardl_ffnn/src/vmd_ardl_ffnn/block_proposed_experiments.py` | Shared VAR-NN helper and per-seed directional accuracy |
 | `run_pipeline_advanced.py` | Explicit dataset profile and VARNN config wiring |
@@ -46,19 +48,21 @@
 - [ ] Write an offline test whose fake transport checks `series_id`, `realtime_start`, `realtime_end`, `output_type` and `file_type=json`; return one `observations` JSON fixture with date/value/vintage fields. Assert values parse as floats, `.` becomes missing, and the API key is absent from cached JSON and errors.
 - [ ] Run `cd vmd_ardl_ffnn && ../.venv/bin/python3 -m pytest tests/test_macro_fred.py -q`; confirm the test fails because `macro_fred_source.py` is absent.
 - [ ] Implement the five fixed `SeriesSpec` entries, the API request, parser and file cache. Use `FRED_API_KEY` only from the environment at the CLI boundary. The cache key must include series ID, as-of date, output type and schema version. Write payload and SHA-256 metadata through sibling temporary files followed by `Path.replace()`.
+- [ ] Pace cold-cache requests below FRED's 120/minute limit; retry HTTP 429 and transient 5xx without exposing the API key in errors.
 - [ ] Re-run the focused test and add a second case proving a cache hit makes zero transport calls. Commit only the new source and test files if the checkout permits commits.
 
 ## Task 2: Construct and audit the point-in-time panel
 
 **Files:** Create `macro_fred_panel.py`; expand `tests/test_macro_fred.py`.
 
-**Interfaces:** Produce `build_us_unemployment_panel(cache_root: Path, output_root: Path, *, start: str = "2000-01-01", end: str = "2025-09-01") -> tuple[Path, Path]`, returning panel CSV and audit JSON paths. The output columns are exactly `date,unemployment_rate,initial_claims,nonfarm_payrolls,cpi_all_items,industrial_prod`. The module's `main()` reads `FRED_API_KEY`, fills the source cache via `fetch_series_snapshot`, then builds the panel; invoke it as `python -m vmd_ardl_ffnn.macro_fred_panel --cache-root data/macro_us/raw --output-root data/macro_us/processed`.
+**Interfaces:** Produce `build_us_unemployment_panel(cache_root: Path, output_root: Path, *, start: str = "2000-01-01", end: str = "2025-09-01") -> tuple[Path, Path]`, returning panel CSV and audit JSON paths. The output columns are exactly `date,unemployment_rate,manufacturing_hours,nonfarm_payrolls,cpi_all_items,industrial_prod`. The module's `main()` reads `FRED_API_KEY`, fills the source cache via `fetch_series_snapshot`, then builds the panel; from the repository root invoke it as `PYTHONPATH=vmd_ardl_ffnn/src ./.venv/bin/python3 -m vmd_ardl_ffnn.macro_fred_panel --cache-root data/macro_us/raw --output-root data/macro_us/processed` unless the package has been installed editable.
 
-- [ ] Add a failing fixture with two months of UNRATE, PAYEMS, CPIAUCSL and INDPRO plus four ICSA week-ending Saturdays. Assert `initial_claims` is their arithmetic mean for the reference month and all source units/series IDs appear in the audit.
+- [ ] Add a failing fixture with two months of UNRATE, AWHMAN, PAYEMS, CPIAUCSL and INDPRO. Assert manufacturing hours and all source units/series IDs appear in the audit.
 - [ ] Add a failing availability fixture: a PAYEMS value first visible after the forecast origin must cause a named exception with series ID and month. Add a missing-UNRATE fixture for October 2025 and assert the builder refuses to fill it.
 - [ ] Run `cd vmd_ardl_ffnn && ../.venv/bin/python3 -m pytest tests/test_macro_fred.py -q`; confirm the new cases fail for the intended missing behavior.
-- [ ] Implement month-start indexing and the end-of-month New York origin. Freeze exogenous observation `m` from the vintage visible at the end of `m+1`; use the initial-release UNRATE label. Verify all `t-1` values were published by origin `t`. Reject duplicate months, missing model values, nonfinite values and mismatched calendars. Do not interpolate or forward-fill.
-- [ ] Write `data/macro_us/processed/us_unemployment_2000_2025_09.csv` plus a JSON audit with hashes for raw snapshots and panel, retrieval timestamp, series IDs, units, ICSA aggregation, as-of dates, missing counts and first/last dates. Verify 309 rows and the three registered split counts. Re-run focused tests and commit task files if permitted.
+- [ ] Implement month-start indexing and the end-of-month New York origin. Freeze exogenous observation `m` from the vintage visible at the end of `m+1`; use the initial-release UNRATE label. Verify all model inputs were published by origin `t` for their exact reference month. Reject duplicate months, missing model values, nonfinite values and mismatched calendars. Do not substitute older months, interpolate or use a later vintage.
+- [ ] Apply the audited exception for September 2025's unused exogenous cells: use the January 31, 2026 vintage, record `used_in_forecasts=false`, and test delayed release fixtures. Do not relax availability checks for any earlier month.
+- [ ] Write `data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv` plus a JSON audit with hashes for raw snapshots and panel, retrieval timestamp, series IDs, units, as-of dates, missing counts and first/last dates. Verify 309 rows and the three registered split counts. Re-run focused tests and commit task files if permitted.
 
 ## Task 3: Add VAR-NN under the shared mean selector
 
@@ -88,7 +92,7 @@
 
 **Files:** Modify `run_pipeline_advanced.py`, `macro_benchmark.py`, `README.md`, `vmd_ardl_ffnn/docs/MACRO_BENCHMARK_PLAN.md`; expand `tests/test_refactor.py`, `tests/test_macro_benchmark.py`.
 
-**Interfaces:** Add `--dataset-profile us-unemployment` for `shared-mean-benchmark`. It requires explicit `--data`, builds `DataConfig(date_col="date", target="unemployment_rate", features=("initial_claims", "nonfarm_payrolls", "cpi_all_items", "industrial_prod"), freq="MS", log_transform=False)`, and uses the 216/309 and 46/309 split ratios. Keep legacy export invocation separate.
+**Interfaces:** Add `--dataset-profile us-unemployment` for `shared-mean-benchmark`. It requires explicit `--data`, builds `DataConfig(date_col="date", target="unemployment_rate", features=("manufacturing_hours", "nonfarm_payrolls", "cpi_all_items", "industrial_prod"), freq="MS", log_transform=False)`, and uses the 216/309 and 46/309 split ratios. Keep legacy export invocation separate.
 
 - [ ] Add parser tests rejecting `--dataset-profile us-unemployment` without `--data`, with an incompatible pipeline, or with a panel missing any of the six required columns. Add a test proving the macro profile uses `unemployment_rate` and never `Export_US`.
 - [ ] Add manifest tests requiring panel SHA-256, source-audit SHA-256, profile name, forecast-origin rule, five stochastic seeds and six model IDs before status can be `success`.
@@ -101,7 +105,7 @@
 **Files:** No source edits unless a test exposes a defect; final run artifacts live under `results/shared-mean-benchmark/<run-id>/`.
 
 - [ ] Run all source, panel, parser and shared-mean unit tests. Run the complete suite with `cd vmd_ardl_ffnn && ../.venv/bin/python3 -m pytest -q` and `git diff --check`.
-- [ ] With `FRED_API_KEY` set in the environment, run `cd vmd_ardl_ffnn && ../.venv/bin/python3 -m vmd_ardl_ffnn.macro_fred_panel --cache-root ../data/macro_us/raw --output-root ../data/macro_us/processed`. Inspect audit entries for every source, the ICSA weekly-to-monthly rule, 309 monthly rows, zero model-column gaps and exact 216/46/47 split boundaries. Check the known October 2025 absence without filling it.
+- [ ] With `FRED_API_KEY` set in the environment, run `PYTHONPATH=vmd_ardl_ffnn/src ./.venv/bin/python3 -m vmd_ardl_ffnn.macro_fred_panel --cache-root data/macro_us/raw --output-root data/macro_us/processed` from the repository root. Inspect audit entries for every source, 309 monthly rows, zero model-column gaps and exact 216/46/47 split boundaries. Check the known October 2025 absence without filling it.
 - [ ] Run a one-seed smoke benchmark on a separate output root. Check that VAR-NN selection/refit succeeds, the naïve reference is present, all six models share forecast dates, and the manifest records the source and panel hashes.
 - [ ] Run the registered five-seed benchmark with a new run ID. Read `benchmark_metrics_comparison.csv`, `benchmark_ensemble_metrics_comparison.csv`, `benchmark_forecasts_comparison.csv`, `paper_forecast_date_coverage.csv`, `paper_experiment_settings.csv` and `diebold_mariano_tests.csv`. Confirm no result from `df_final.csv` enters these tables.
 - [ ] Report validation and test metrics separately, including naïve. State explicitly whether A7 beats each comparator; do not infer significance from rank alone. Record the COVID-period validation/test distribution shift and pre-register any additional rolling-origin robustness run before examining its test scores.

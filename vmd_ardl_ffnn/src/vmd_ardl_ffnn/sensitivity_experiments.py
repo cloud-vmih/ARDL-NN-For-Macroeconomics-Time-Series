@@ -8,12 +8,11 @@ from typing import Any
 import pandas as pd
 
 from .artifacts import write_csv
+from .benchmark_common import aggregate_seed_metrics, efficiency_row
 from .config import ExperimentConfig
 from .paper_experiments import (
     NEURAL_VARIANTS,
-    _aggregate_seed_metrics,
-    _efficiency_row,
-    _run_neural_variant,
+    run_neural_variant,
 )
 
 
@@ -106,7 +105,7 @@ def run_sensitivity_experiments(
         setting_rows.append(_profile_settings(profile, profile_config, tuple(seeds)))
         for seed in seeds:
             started = perf_counter()
-            result, metrics, forecasts = _run_neural_variant(
+            result, metrics, forecasts = run_neural_variant(
                 csv_path,
                 profile_config,
                 pipeline=profile,
@@ -120,7 +119,7 @@ def run_sensitivity_experiments(
             forecast_frames.append(forecasts)
             efficiency_rows.append(
                 {
-                    **_efficiency_row(
+                    **efficiency_row(
                         result,
                         profile_config,
                         pipeline=profile,
@@ -133,7 +132,7 @@ def run_sensitivity_experiments(
 
     seed_metrics = pd.concat(metric_frames, ignore_index=True, sort=False)
     forecasts = pd.concat(forecast_frames, ignore_index=True, sort=False)
-    summary = _aggregate_seed_metrics(seed_metrics)
+    summary = aggregate_seed_metrics(seed_metrics)
     efficiency = pd.DataFrame(efficiency_rows)
     settings = pd.DataFrame(setting_rows)
     write_csv(seed_metrics, root / "sensitivity_seed_metrics.csv")

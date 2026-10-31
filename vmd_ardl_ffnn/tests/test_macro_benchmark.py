@@ -91,6 +91,9 @@ def test_macro_feature_screen_is_train_only_and_keeps_exactly_four(monkeypatch) 
 
 
 def test_macro_profiles_make_notebook_models_strictly_opt_in() -> None:
+    assert "varnn" in CORE_PIPELINES
+    assert "naive_last_observation" in CORE_PIPELINES
+    assert len(CORE_PIPELINES + FULL_ONLY_PIPELINES) == len(set(CORE_PIPELINES + FULL_ONLY_PIPELINES))
     assert pipelines_for_profile("core-only") == CORE_PIPELINES
     assert pipelines_for_profile("full") == CORE_PIPELINES + FULL_ONLY_PIPELINES
     with pytest.raises(ValueError, match="macro profile"):

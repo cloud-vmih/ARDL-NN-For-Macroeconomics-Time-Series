@@ -1,5 +1,9 @@
 # Review Project `vmd_ardl_ffnn`
 
+> Bản review lịch sử cho các experiment legacy. CLI hiện tại yêu cầu `--data`;
+> `df_final.csv` đã bị loại vì lỗi tổng hợp. Xem README gốc và `CLI_OPTIONS.md`
+> cho benchmark BLS/FRED đang dùng.
+
 Tài liệu này review lại package `vmd_ardl_ffnn` theo code hiện tại: hướng đi experiment, cách chọn lag, cách build model và cách đọc output. Mục tiêu chính của project là xây một pipeline dự báo time series có kiểm soát leakage, so sánh mô hình ARDL + FFNN trực tiếp với phiên bản có phân rã VMD.
 
 ## 1. Hướng Đi Experiment
@@ -15,7 +19,9 @@ Project đang theo hướng forecasting experiment có kiểm định nghiêm ng
   - `vmd`: phân rã target và features thành các component VMD, dự báo từng component bằng ARDL lag selection + FFNN, rồi cộng forecast component lại.
 - Có pipeline `both` để chạy cả `no-vmd` và `vmd`, sau đó tạo bảng so sánh metrics.
 
-Entrypoint CLI nằm ở `src/vmd_ardl_ffnn/cli.py`. Module `experiment.py` chỉ re-export `VMDARDLFFNNExperiment` từ `experiment_fixed.py`, nên logic experiment thực tế nằm trong `experiment_fixed.py`.
+Entrypoint CLI nằm ở `src/vmd_ardl_ffnn/cli.py` và gọi `advanced_runner.py`.
+Module `experiment.py` re-export `VMDARDLFFNNExperiment`; lõi ở
+`experiment_fixed.py`, các workflow block/shared-mean/hard ở module riêng.
 
 ## 2. Tiền Xử Lý Và Stationarity
 
@@ -312,7 +318,7 @@ Chạy VMD với target lag từ ACF/PACF:
 ```bash
 python -m vmd_ardl_ffnn.cli \
   --pipeline vmd \
-  --data ../df_final.csv \
+  --data /path/to/validated_legacy.csv \
   --out results \
   --date-col TIME_PERIOD \
   --target Export_US \
@@ -330,7 +336,7 @@ Chạy baseline không VMD:
 ```bash
 python -m vmd_ardl_ffnn.cli \
   --pipeline no-vmd \
-  --data ../df_final.csv \
+  --data /path/to/validated_legacy.csv \
   --out results_no_vmd \
   --date-col TIME_PERIOD \
   --target Export_US \
@@ -344,7 +350,7 @@ Chạy so sánh cả hai:
 ```bash
 python -m vmd_ardl_ffnn.cli \
   --pipeline both \
-  --data ../df_final.csv \
+  --data /path/to/validated_legacy.csv \
   --out results_both \
   --date-col TIME_PERIOD \
   --target Export_US \

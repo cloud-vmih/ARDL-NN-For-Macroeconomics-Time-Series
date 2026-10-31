@@ -30,19 +30,21 @@ epoch, EarlyStopping patience 15 và ReduceLROnPlateau patience 6. Bản tái l�
 
 ## Hai profile thực thi
 
-`core-only` là mặc định và chỉ chạy năm workflow nội bộ:
+`core-only` là mặc định và chạy bảy workflow nội bộ/tham chiếu:
 
 1. `ardl_ffnn_no_vmd`
 2. `vmd_ardl_block_subset_proposed`
 3. `vmd_ardl_sequential_screen`
 4. `vmd_ardl_joint_select`
-5. `vmd_ardl_univariate_shared_mean`
+5. `varnn`
+6. `naive_last_observation`
+7. `vmd_ardl_univariate_shared_mean`
 
 Profile này không build/train/import TensorFlow graph của MLP/LSTM/GRU notebook,
 không tạo thư mục artifact notebook và tiêu đề kết quả là “internal workflow
 comparison”, không gọi đó là Kaggle benchmark.
 
-`full` chạy thêm exact reproduction, Naive last observation và ba comparator
+`full` chạy thêm exact reproduction và ba comparator
 công bằng MLP/LSTM/GRU. Artifact exact reproduction và fair comparison nằm ở
 hai thư mục riêng để không trộn test-selected result với validation-selected
 result.
@@ -115,7 +117,7 @@ component đã materialize trong RAM. Candidate FFNN và từng fold staged-halv
 
 - Feature screening và mọi lựa chọn model không đọc validation/test sai phạm.
 - VMD cache vẫn chạy origin-by-origin.
-- `core-only` có đúng năm pipeline và không sinh artifact notebook.
+- `core-only` có đúng bảy pipeline và không sinh artifact notebook.
 - `full` giữ exact reproduction tách biệt khỏi fair comparison.
 - TensorFlow và sktime được gọi thật trong production; test riêng xác nhận scaler,
   device fail-fast, shape VMD và compatibility aliases.

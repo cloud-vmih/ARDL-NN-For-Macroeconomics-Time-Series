@@ -67,6 +67,18 @@ def test_ffnn_config_rejects_unknown_scaler() -> None:
         FFNNConfig(scaler="robust")
 
 
+def test_ffnn_runtime_can_train_eagerly() -> None:
+    X = np.arange(48, dtype=np.float32).reshape(24, 2)
+    y = (X[:, 0] - X[:, 1]).astype(np.float32)
+    model = TensorFlowFFNNRegressor(
+        hidden_layer_sizes=(4,), max_iter=2, validation_fraction=0.0,
+        runtime=TensorFlowRuntimeConfig(device="cpu", run_eagerly=True),
+    ).fit(X, y)
+
+    assert model.model_.run_eagerly is True
+    assert np.isfinite(model.predict(X[:2])).all()
+
+
 def test_legacy_ffnn_alias_warns_without_numpy_fallback() -> None:
     import vmd_ardl_ffnn.models.ffnn as ffnn
 

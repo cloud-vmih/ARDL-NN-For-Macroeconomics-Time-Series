@@ -8,24 +8,26 @@ from typing import Any
 import pandas as pd
 
 from .artifacts import write_csv
+from .benchmark_common import (
+    aggregate_seed_metrics,
+    dataset_audit,
+    efficiency_row,
+    ensemble_prediction_metrics,
+    forecast_date_coverage,
+    lag_selection_rows,
+    normalized_result,
+)
 from .config import ExperimentConfig
 from .evaluation import normalize_forecasts
+from .metrics import evaluate_forecast
 from .experiment import VMDARDLFFNNExperiment
 from .hard_ffnn_experiments import (
     HARD_FFNN_MODEL,
     HARD_FFNN_PIPELINE,
-    run_hard_ffnn_variant as _run_hard_ffnn_variant,
+    run_hard_ffnn_variant,
 )
 from .models.varnn import VARNNConfig, run_varnn_pipeline
 from .paper_baselines import run_linear_ardl_baseline, run_naive_baseline
-from .paper_experiments import (
-    _aggregate_seed_metrics,
-    _dataset_audit,
-    _efficiency_row,
-    _ensemble_prediction_metrics,
-    _forecast_date_coverage,
-    _lag_selection_rows,
-)
 from .paper_reporting import lag_selection_frequency, write_paper_figures
 from .statistical_tests import pairwise_dm_tests
 
@@ -87,27 +89,7 @@ def _shared_config(
     )
 
 
-def _normalized_result(
-    result: dict[str, Any],
-    *,
-    pipeline: str,
-    model: str,
-    uses_vmd: bool,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    metrics = result["final_metrics"].copy()
-    metrics = metrics[metrics["scale"].eq("level")].copy()
-    metrics["model"] = model
-    metrics["pipeline"] = pipeline
-    predicted_col = "predicted_reconstructed" if uses_vmd else "predicted_raw_transformed"
-    forecasts = normalize_forecasts(
-        result["final_forecasts"],
-        pipeline=pipeline,
-        predicted_col=predicted_col,
-    )
-    return metrics, forecasts
-
-
-def _run_shared_vmd_variant(
+def run_shared_vmd_variant(
     csv_path: str | Path,
     config: ExperimentConfig,
     *,
@@ -137,7 +119,7 @@ def _run_shared_vmd_variant(
         screening_mode=screening_mode,
         artifact_stem=pipeline,
     )
-    metrics, forecasts = _normalized_result(
+    metrics, forecasts = normalized_result(
         result,
         pipeline=pipeline,
         model=model,
@@ -146,7 +128,7 @@ def _run_shared_vmd_variant(
     return result, metrics, forecasts, variant_config
 
 
-def _run_shared_no_vmd_variant(
+def run_shared_no_vmd_variant(
     csv_path: str | Path,
     config: ExperimentConfig,
     *,
@@ -172,7 +154,7 @@ def _run_shared_no_vmd_variant(
         screening_mode=screening_mode,
         artifact_stem=pipeline,
     )
-    metrics, forecasts = _normalized_result(
+    metrics, forecasts = normalized_result(
         result,
         pipeline=pipeline,
         model=model,
@@ -181,7 +163,7 @@ def _run_shared_no_vmd_variant(
     return result, metrics, forecasts, variant_config
 
 
-def _run_shared_block_variant(
+def run_shared_block_variant(
     csv_path: str | Path,
     config: ExperimentConfig,
     *,
@@ -205,7 +187,7 @@ def _run_shared_block_variant(
         search_strategy=search_strategy,
         fast_screen_validation_scope=fast_screen_validation_scope,
     )
-    metrics, forecasts = _normalized_result(
+    metrics, forecasts = normalized_result(
         result,
         pipeline=pipeline,
         model=model,
@@ -243,7 +225,7 @@ def _run_per_seed_block_variant(
         started = perf_counter()
         result = VMDARDLFFNNExperiment(seed_config).run(csv_path)
         elapsed = perf_counter() - started
-        metrics, forecasts = _normalized_result(
+        metrics, forecasts = normalized_result(
             result,
             pipeline=pipeline,
             model=model,
@@ -263,7 +245,7 @@ def _run_per_seed_block_variant(
     )
 
 
-def _run_varnn_shared_mean_seed(
+def run_varnn_shared_mean_seed(
     csv_path: str | Path,
     config: ExperimentConfig,
     varnn_config: VARNNConfig,
@@ -348,6 +330,15 @@ def _run_varnn_shared_mean_seed(
             predicted_col="predicted_raw_transformed",
         )
         forecasts["seed"] = int(seed)
+        directional = {
+            split: evaluate_forecast(group["actual"], group["predicted"])[
+                "Directional_Accuracy"
+            ]
+            for split, group in forecasts.groupby("split", sort=False)
+        }
+        metrics["Directional_Accuracy"] = metrics["split"].map(directional)
+        if metrics["Directional_Accuracy"].isna().any():
+            raise ValueError(f"VARNN seed {seed} is missing level forecast metrics.")
         results.append(result)
         metric_frames.append(metrics)
         forecast_frames.append(forecasts)
@@ -397,7 +388,7 @@ def run_block_proposed_experiments(
         raise ValueError("Block-proposed experiments require reporting seeds.")
     root = Path(config.output_dir)
     root.mkdir(parents=True, exist_ok=True)
-    dataset_summary, split_summary, stationarity_summary = _dataset_audit(
+    dataset_summary, split_summary, stationarity_summary = dataset_audit(
         csv_path,
         config,
         root,
@@ -462,7 +453,7 @@ def run_block_proposed_experiments(
         forecast_frames.append(forecasts)
         for seed in seeds:
             lag_frames.append(
-                _lag_selection_rows(result, pipeline=pipeline, seed=seed)
+                lag_selection_rows(result, pipeline=pipeline, seed=seed)
             )
         folds = result.get("lag_screen_fold_metrics", pd.DataFrame())
         if not folds.empty:
@@ -471,7 +462,7 @@ def run_block_proposed_experiments(
         if not stability.empty:
             lag_screen_stability_frames.append(stability.assign(pipeline=pipeline))
         efficiency_rows.append(
-            _efficiency_row(
+            efficiency_row(
                 result,
                 variant_config,
                 pipeline=pipeline,
@@ -625,7 +616,7 @@ def run_block_proposed_experiments(
     for profile in shared_profiles:
         started = perf_counter()
         if profile["uses_vmd"]:
-            result, metrics, forecasts, variant_config = _run_shared_vmd_variant(
+            result, metrics, forecasts, variant_config = run_shared_vmd_variant(
                 csv_path,
                 config,
                 pipeline=profile["pipeline"],
@@ -647,7 +638,7 @@ def run_block_proposed_experiments(
                 else "mean_reconstructed_level_validation_across_reporting_seeds"
             )
         else:
-            result, metrics, forecasts, variant_config = _run_shared_no_vmd_variant(
+            result, metrics, forecasts, variant_config = run_shared_no_vmd_variant(
                 csv_path,
                 config,
                 pipeline=profile["pipeline"],
@@ -684,7 +675,7 @@ def run_block_proposed_experiments(
         hard_metrics,
         hard_forecasts,
         hard_config,
-    ) = _run_hard_ffnn_variant(
+    ) = run_hard_ffnn_variant(
         csv_path,
         config,
         seeds=seeds,
@@ -725,7 +716,7 @@ def run_block_proposed_experiments(
         (PROPOSED_PIPELINE, PROPOSED_MODEL, "two_stage"),
     ):
         started = perf_counter()
-        result, metrics, forecasts, variant_config = _run_shared_block_variant(
+        result, metrics, forecasts, variant_config = run_shared_block_variant(
             csv_path,
             config,
             pipeline=pipeline,
@@ -769,9 +760,9 @@ def run_block_proposed_experiments(
         zip(a6_results, a6_runs, strict=True),
         strict=True,
     ):
-        lag_frames.append(_lag_selection_rows(result, pipeline=a6_pipeline, seed=seed))
+        lag_frames.append(lag_selection_rows(result, pipeline=a6_pipeline, seed=seed))
         efficiency_rows.append(
-            _efficiency_row(
+            efficiency_row(
                 result,
                 seed_config,
                 pipeline=a6_pipeline,
@@ -800,7 +791,7 @@ def run_block_proposed_experiments(
                 varnn_forecasts,
                 varnn_selection,
                 varnn_fits,
-            ) = _run_varnn_shared_mean_seed(
+            ) = run_varnn_shared_mean_seed(
                 csv_path,
                 config,
                 varnn_config or VARNNConfig(),
@@ -870,7 +861,7 @@ def run_block_proposed_experiments(
 
     seed_metrics = pd.concat(metric_frames, ignore_index=True, sort=False)
     forecasts = pd.concat(forecast_frames, ignore_index=True, sort=False)
-    aggregate_metrics = _aggregate_seed_metrics(seed_metrics)
+    aggregate_metrics = aggregate_seed_metrics(seed_metrics)
     active_benchmarks = tuple(
         pipeline
         for pipeline in BENCHMARK_PIPELINES
@@ -882,7 +873,7 @@ def run_block_proposed_experiments(
     benchmark_seed_robustness = aggregate_metrics[
         aggregate_metrics["pipeline"].isin(active_benchmarks)
     ].copy()
-    benchmark_ensemble_metrics = _ensemble_prediction_metrics(
+    benchmark_ensemble_metrics = ensemble_prediction_metrics(
         benchmark_forecasts,
         seed_metrics,
     )
@@ -890,7 +881,7 @@ def run_block_proposed_experiments(
     # random initializations.  The mean-prediction ensemble remains an
     # explicitly named secondary artifact.
     benchmark_metrics = benchmark_seed_robustness
-    date_coverage = _forecast_date_coverage(benchmark_forecasts)
+    date_coverage = forecast_date_coverage(benchmark_forecasts)
     ablation_metrics = aggregate_metrics[
         aggregate_metrics["pipeline"].isin(ABLATION_IDS)
     ].copy()
@@ -950,7 +941,7 @@ def run_block_proposed_experiments(
     write_csv(date_coverage, root / "paper_forecast_date_coverage.csv")
     write_csv(aggregate_metrics, root / "paper_metrics_summary.csv")
     write_csv(
-        _ensemble_prediction_metrics(forecasts, seed_metrics),
+        ensemble_prediction_metrics(forecasts, seed_metrics),
         root / "paper_ensemble_metrics_summary.csv",
     )
     write_csv(forecasts, root / "paper_forecasts.csv")

@@ -1,30 +1,37 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Callable
 
+import numpy as np
 import pandas as pd
 
 from .artifacts import write_csv
+from .benchmark_common import (
+    aggregate_seed_metrics,
+    dataset_audit,
+    efficiency_row,
+    ensemble_prediction_metrics,
+    forecast_date_coverage,
+    lag_selection_rows,
+)
 from .block_proposed_experiments import (
     JOINT_SELECT_PIPELINE,
     PROPOSED_MODEL,
     PROPOSED_PIPELINE,
     SEQUENTIAL_PIPELINE,
-    _run_shared_block_variant,
-    _run_shared_no_vmd_variant,
-    _run_shared_vmd_variant,
+    run_shared_block_variant,
+    run_shared_no_vmd_variant,
+    run_shared_vmd_variant,
+    run_varnn_shared_mean_seed,
 )
 from .config import ExperimentConfig
-from .paper_experiments import (
-    _aggregate_seed_metrics,
-    _dataset_audit,
-    _efficiency_row,
-    _ensemble_prediction_metrics,
-    _forecast_date_coverage,
-    _lag_selection_rows,
-)
+from .lstm_shared_mean import LSTM_MODEL, LSTM_PIPELINE, run_lstm_shared_mean_seed
+from .models.lstm import LSTMConfig
+from .models.varnn import VARNNConfig
+from .paper_baselines import run_naive_baseline
 from .paper_reporting import lag_selection_frequency, write_paper_figures
 from .statistical_tests import pairwise_dm_tests
 
@@ -33,13 +40,56 @@ NO_VMD_PIPELINE = "ardl_ffnn_no_vmd"
 NO_VMD_MODEL = "ARDL_FFNN_NoVMD_SharedMeanSeed"
 SEQUENTIAL_MODEL = "VMD_ARDL_SequentialScreen_SharedMeanSeed_FFNN"
 JOINT_SELECT_MODEL = "VMD_ARDL_JointSelect_SharedMeanSeed_FFNN"
+VARNN_PIPELINE = "varnn"
+NAIVE_PIPELINE = "naive_last_observation"
 
 SHARED_MEAN_BENCHMARK_PIPELINES = (
     NO_VMD_PIPELINE,
     PROPOSED_PIPELINE,
     SEQUENTIAL_PIPELINE,
     JOINT_SELECT_PIPELINE,
+    VARNN_PIPELINE,
+    LSTM_PIPELINE,
 )
+
+
+def _require_complete_coverage(
+    forecasts: pd.DataFrame,
+    seeds: tuple[int, ...],
+    stochastic_pipelines: tuple[str, ...],
+) -> None:
+    """Require each model/seed to predict every date covered by naïve."""
+    frame = forecasts.copy()
+    frame["date"] = pd.to_datetime(frame["date"])
+    for split in ("validation", "test"):
+        part = frame.loc[frame["split"].eq(split)]
+        baseline = part.loc[part["pipeline"].eq(NAIVE_PIPELINE)]
+        expected = set(baseline["date"])
+        if not expected or len(baseline) != len(expected):
+            raise ValueError(f"Naïve forecast coverage is incomplete for {split}.")
+        for pipeline in stochastic_pipelines:
+            for seed in seeds:
+                member = part.loc[
+                    part["pipeline"].eq(pipeline) & part["seed"].eq(seed)
+                ]
+                actual = set(member["date"])
+                if actual != expected or len(member) != len(expected):
+                    missing = sorted(expected - actual)
+                    extra = sorted(actual - expected)
+                    raise ValueError(
+                        f"{pipeline} seed {seed} {split} forecast dates differ: "
+                        f"missing={[day.strftime('%Y-%m-%d') for day in missing]}, "
+                        f"extra={[day.strftime('%Y-%m-%d') for day in extra]}."
+                    )
+        reference = part["date"].map(baseline.set_index("date")["actual"])
+        actual = pd.to_numeric(part["actual"], errors="coerce").to_numpy(float)
+        expected_actual = pd.to_numeric(reference, errors="coerce").to_numpy(float)
+        if (
+            not np.isfinite(actual).all()
+            or not np.isfinite(expected_actual).all()
+            or not np.isclose(actual, expected_actual, rtol=1e-10, atol=1e-12).all()
+        ):
+            raise ValueError(f"Actual values differ across models for {split}.")
 
 
 def run_shared_mean_benchmark_experiments(
@@ -47,15 +97,18 @@ def run_shared_mean_benchmark_experiments(
     config: ExperimentConfig,
     *,
     seeds: tuple[int, ...] = (7, 42, 123, 2024, 2025),
+    varnn_config: VARNNConfig | None = None,
+    lstm_config: LSTMConfig | None = None,
+    include_lstm: bool = True,
 ) -> dict[str, Any]:
-    """Benchmark the four requested workflows under one shared-mean protocol."""
+    """Benchmark shared-mean stochastic workflows and a naïve reference."""
     seeds = tuple(dict.fromkeys(int(seed) for seed in seeds))
     if not seeds:
         raise ValueError("Shared-mean benchmark requires reporting seeds.")
 
     root = Path(config.output_dir)
     root.mkdir(parents=True, exist_ok=True)
-    dataset_summary, split_summary, stationarity_summary = _dataset_audit(
+    dataset_summary, split_summary, stationarity_summary = dataset_audit(
         csv_path,
         config,
         root,
@@ -91,7 +144,7 @@ def run_shared_mean_benchmark_experiments(
         forecast_frames.append(forecasts)
         for seed in seeds:
             lag_frames.append(
-                _lag_selection_rows(result, pipeline=pipeline, seed=seed)
+                lag_selection_rows(result, pipeline=pipeline, seed=seed)
             )
         folds = result.get("lag_screen_fold_metrics", pd.DataFrame())
         if not folds.empty:
@@ -102,7 +155,7 @@ def run_shared_mean_benchmark_experiments(
                 stability.assign(pipeline=pipeline)
             )
         efficiency_rows.append(
-            _efficiency_row(
+            efficiency_row(
                 result,
                 variant_config,
                 pipeline=pipeline,
@@ -157,7 +210,7 @@ def run_shared_mean_benchmark_experiments(
             "ardl_screen",
             "rolling_mean_seed",
             "mean_level_validation_across_reporting_seeds",
-            _run_shared_no_vmd_variant,
+            run_shared_no_vmd_variant,
         ),
         (
             SEQUENTIAL_PIPELINE,
@@ -167,7 +220,7 @@ def run_shared_mean_benchmark_experiments(
             "ardl_screen",
             "rolling_mean_seed",
             "mean_reconstructed_level_validation_across_reporting_seeds",
-            _run_shared_vmd_variant,
+            run_shared_vmd_variant,
         ),
         (
             JOINT_SELECT_PIPELINE,
@@ -177,7 +230,7 @@ def run_shared_mean_benchmark_experiments(
             "ardl_select_order_joint",
             "none",
             "mean_reconstructed_level_validation_across_reporting_seeds",
-            _run_shared_vmd_variant,
+            run_shared_vmd_variant,
         ),
     )
 
@@ -234,7 +287,7 @@ def run_shared_mean_benchmark_experiments(
 
     started = perf_counter()
     proposed_result, proposed_metrics, proposed_forecasts, proposed_config = (
-        _run_shared_block_variant(
+        run_shared_block_variant(
             csv_path,
             config,
             pipeline=PROPOSED_PIPELINE,
@@ -263,10 +316,138 @@ def run_shared_mean_benchmark_experiments(
         fast_screen_validation_scope="train_inner_rolling",
     )
 
+    started = perf_counter()
+    varnn_results, varnn_metrics, varnn_forecasts, varnn_selection, varnn_fits = (
+        run_varnn_shared_mean_seed(
+            csv_path,
+            config,
+            varnn_config or VARNNConfig(),
+            seeds=seeds,
+            output_dir=root / VARNN_PIPELINE,
+        )
+    )
+    variant_results[VARNN_PIPELINE] = varnn_results
+    metric_frames.append(varnn_metrics)
+    forecast_frames.append(varnn_forecasts)
+    write_csv(varnn_selection, root / VARNN_PIPELINE / "shared_selection.csv")
+    efficiency_rows.append(
+        {
+            "pipeline": VARNN_PIPELINE,
+            "seed": None,
+            "runtime_seconds": perf_counter() - started,
+            "component_count": 1,
+            "evaluated_ffnn_fits": varnn_fits,
+        }
+    )
+    setting_rows.append(
+        {
+            "pipeline": VARNN_PIPELINE,
+            "model": "VARNN_SharedMeanSeed",
+            "included_in_benchmark": True,
+            "uses_vmd": False,
+            "target_lag_strategy": "var_aic",
+            "exog_lag_strategy": "var_lag",
+            "selection_protocol": "mean_level_validation_across_reporting_seeds",
+            "selection_seed_aggregation": "shared_mean_validation_across_reporting_seeds",
+            "shared_configuration_across_seeds": True,
+            "search_strategy": "shared_grid",
+            "fast_screen_validation_scope": "not_applicable",
+            "reporting_seeds": seeds,
+            "varnn_learning_rate_grid": tuple((varnn_config or VARNNConfig()).learning_rate_grid),
+            "final_selection_scale": "level",
+            "enabled": True,
+        }
+    )
+
+    if include_lstm:
+        selected_lstm_config = lstm_config or LSTMConfig()
+        started = perf_counter()
+        lstm_results, lstm_metrics, lstm_forecasts, lstm_selection, lstm_fits = (
+            run_lstm_shared_mean_seed(
+                csv_path,
+                config,
+                selected_lstm_config,
+                seeds=seeds,
+                output_dir=root / LSTM_PIPELINE,
+            )
+        )
+        variant_results[LSTM_PIPELINE] = lstm_results
+        metric_frames.append(lstm_metrics)
+        forecast_frames.append(lstm_forecasts)
+        write_csv(lstm_selection, root / LSTM_PIPELINE / "shared_selection.csv")
+        winner = lstm_selection.loc[lstm_selection["selected"]].iloc[0]
+        efficiency_rows.append({
+            "pipeline": LSTM_PIPELINE,
+            "seed": None,
+            "runtime_seconds": perf_counter() - started,
+            "component_count": 1,
+            "evaluated_ffnn_fits": lstm_fits,
+            "evaluated_lstm_fits": lstm_fits,
+        })
+        setting_rows.append({
+            "pipeline": LSTM_PIPELINE,
+            "model": LSTM_MODEL,
+            "included_in_benchmark": True,
+            "uses_vmd": False,
+            "target_lag_strategy": "lstm_lookback_validation",
+            "exog_lag_strategy": "multivariate_history_through_t_minus_1",
+            "selection_protocol": "mean_level_validation_across_reporting_seeds",
+            "selection_seed_aggregation": "shared_mean_validation_across_reporting_seeds",
+            "shared_configuration_across_seeds": True,
+            "search_strategy": "shared_grid",
+            "fast_screen_validation_scope": "not_applicable",
+            "reporting_seeds": seeds,
+            "lstm_lookback_grid": selected_lstm_config.lookback_grid,
+            "lstm_hidden_units_grid": selected_lstm_config.hidden_units_grid,
+            "lstm_learning_rate_grid": selected_lstm_config.learning_rate_grid,
+            "lstm_epochs": selected_lstm_config.epochs,
+            "lstm_selected_lookback": int(winner["lookback"]),
+            "lstm_selected_hidden_units": int(winner["hidden_units"]),
+            "lstm_selected_learning_rate": float(winner["learning_rate"]),
+            "final_selection_scale": "level",
+            "enabled": True,
+        })
+
+    started = perf_counter()
+    naive_result = run_naive_baseline(
+        csv_path,
+        replace(config, output_dir=root / NAIVE_PIPELINE),
+        lag=1,
+        model_name="Naive_LastObservation",
+    )
+    naive_metrics = naive_result["metrics"].copy()
+    naive_forecasts = naive_result["forecasts"].copy()
+    naive_metrics["pipeline"] = NAIVE_PIPELINE
+    naive_forecasts["pipeline"] = NAIVE_PIPELINE
+    naive_metrics["seed"] = pd.NA
+    naive_forecasts["seed"] = pd.NA
+    metric_frames.append(naive_metrics)
+    forecast_frames.append(naive_forecasts)
+    variant_results[NAIVE_PIPELINE] = [naive_result]
+    efficiency_rows.append(
+        {"pipeline": NAIVE_PIPELINE, "seed": None,
+         "runtime_seconds": perf_counter() - started,
+         "component_count": 0, "evaluated_ffnn_fits": 0}
+    )
+    setting_rows.append(
+        {"pipeline": NAIVE_PIPELINE, "model": "Naive_LastObservation",
+         "included_in_benchmark": True, "uses_vmd": False,
+         "target_lag_strategy": "last_observation", "exog_lag_strategy": "none",
+         "selection_protocol": "none", "selection_seed_aggregation": None,
+         "shared_configuration_across_seeds": False, "search_strategy": "none",
+         "fast_screen_validation_scope": "not_applicable",
+         "reporting_seeds": tuple(), "final_selection_scale": "level",
+         "enabled": True}
+    )
+
     seed_metrics = pd.concat(metric_frames, ignore_index=True, sort=False)
     forecasts = pd.concat(forecast_frames, ignore_index=True, sort=False)
     active_pipelines = set(forecasts["pipeline"].unique())
-    expected_pipelines = set(SHARED_MEAN_BENCHMARK_PIPELINES)
+    stochastic_pipelines = tuple(
+        pipeline for pipeline in SHARED_MEAN_BENCHMARK_PIPELINES
+        if include_lstm or pipeline != LSTM_PIPELINE
+    )
+    expected_pipelines = set(stochastic_pipelines) | {NAIVE_PIPELINE}
     if active_pipelines != expected_pipelines:
         raise ValueError(
             "Shared-mean benchmark model set mismatch: "
@@ -274,7 +455,7 @@ def run_shared_mean_benchmark_experiments(
             f"actual={sorted(active_pipelines)}."
         )
     expected_seeds = set(seeds)
-    for pipeline in SHARED_MEAN_BENCHMARK_PIPELINES:
+    for pipeline in stochastic_pipelines:
         metric_seeds = set(
             seed_metrics.loc[
                 seed_metrics["pipeline"].eq(pipeline),
@@ -294,19 +475,20 @@ def run_shared_mean_benchmark_experiments(
                 f"metrics={sorted(metric_seeds)}, "
                 f"forecasts={sorted(forecast_seeds)}."
             )
+    _require_complete_coverage(forecasts, seeds, stochastic_pipelines)
 
-    aggregate_metrics = _aggregate_seed_metrics(seed_metrics)
+    aggregate_metrics = aggregate_seed_metrics(seed_metrics)
     benchmark_metrics = aggregate_metrics[
-        aggregate_metrics["pipeline"].isin(SHARED_MEAN_BENCHMARK_PIPELINES)
+        aggregate_metrics["pipeline"].isin(expected_pipelines)
     ].copy()
     benchmark_forecasts = forecasts[
-        forecasts["pipeline"].isin(SHARED_MEAN_BENCHMARK_PIPELINES)
+        forecasts["pipeline"].isin(expected_pipelines)
     ].copy()
-    ensemble_metrics = _ensemble_prediction_metrics(
+    ensemble_metrics = ensemble_prediction_metrics(
         benchmark_forecasts,
         seed_metrics,
     )
-    date_coverage = _forecast_date_coverage(benchmark_forecasts)
+    date_coverage = forecast_date_coverage(benchmark_forecasts)
     dm_tests = pairwise_dm_tests(
         benchmark_forecasts,
         split="test",
@@ -402,4 +584,7 @@ def run_shared_mean_benchmark_experiments(
         "proposed": variant_results[PROPOSED_PIPELINE],
         "sequential_proposed": variant_results[SEQUENTIAL_PIPELINE],
         "joint_select": variant_results[JOINT_SELECT_PIPELINE],
+        "varnn": variant_results[VARNN_PIPELINE],
+        "lstm": variant_results.get(LSTM_PIPELINE, []),
+        "naive": variant_results[NAIVE_PIPELINE],
     }

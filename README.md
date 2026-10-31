@@ -1,5 +1,41 @@
 # VMD–ARDL–FFNN Forecasting Project
 
+## Benchmark thất nghiệp Mỹ từ BLS/FRED
+
+Study mới dùng `UNRATE` làm target và bốn biến `AWHMAN`, `PAYEMS`, `CPIAUCSL`,
+`INDPRO`. Panel được dựng từ FRED/ALFRED vintages, có file audit và mã băm;
+`df_final.csv` không được dùng trong study này. Cần đặt `FRED_API_KEY` trong môi
+trường trước khi dựng panel:
+
+```bash
+set -a; . ./.env; set +a  # Chỉ cần khi khóa được lưu trong .env
+PYTHONPATH=vmd_ardl_ffnn/src ./.venv/bin/python3 -m vmd_ardl_ffnn.macro_fred_panel \
+  --cache-root data/macro_us/raw \
+  --output-root data/macro_us/processed
+
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline shared-mean-benchmark \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --tensorflow-device gpu \
+  --tensorflow-run-eagerly \
+  --paper-seeds 7 42 123 2024 2025 \
+  --run-id us-unemployment-lstm-04
+```
+
+Benchmark này chạy bốn shared-mean workflow hiện có, VAR-NN, LSTM và naïve last
+observation trên cùng validation/test dates. `--tensorflow-run-eagerly` hạn chế
+RAM tăng qua nhiều lượt fit FFNN và được ghi vào manifest. Panel chính có 309 tháng
+01/2000–09/2025; 10/2025 không được nội suy. Ngoại sinh của dòng cuối
+09/2025 dùng vintage 31/01/2026 do công bố bị chậm và được audit là không
+tham gia dự báo nào. Lần tải đầu cần hơn 1.200 yêu cầu API; module tự giới hạn
+tốc độ và có thể chạy lại để dùng cache. Thiết kế và các bước kiểm tra
+nằm trong [kế hoạch tiếng Việt](docs/superpowers/plans/2026-10-30-us-unemployment-shared-mean-varnn-vi.md).
+`AWHMAN` là số giờ làm việc bình quân mỗi tuần của lao động sản xuất và phi
+quản lý trong ngành chế tạo. Chuỗi này thay `HOUST`: HOUST chưa được công bố
+đúng hạn ở 09–10/2013 và 12/2018–01/2019, còn panel chính yêu cầu đúng
+tháng nguồn tại mọi mốc dự báo. `ICSA` không có vintage ALFRED trước 05/2009.
+
 Pipeline macro mới dùng TensorFlow/Keras cho FFNN và `sktime` cho VMD. Nhánh
 nhẹ mặc định không chạy model notebook:
 
@@ -48,7 +84,7 @@ Các model neural nội bộ mặc định chỉ dùng activation `tanh` và lea
 cả hai kiểm định đồng thuận chuỗi dừng và dùng `diff1` trong trường hợp còn lại.
 Nhóm exact Kaggle reproduction giữ nguyên cấu hình notebook gốc.
 
-Chỉ dùng `--macro-profile full` khi cần thêm exact Kaggle reproduction, Naive,
+Chỉ dùng `--macro-profile full` khi cần thêm exact Kaggle reproduction,
 MLP, LSTM và GRU. Macro production mặc định yêu cầu GPU; CPU phải được chọn rõ
 bằng `--tensorflow-device cpu` cho smoke/test. Chi tiết nằm tại
 `vmd_ardl_ffnn/docs/MACRO_BENCHMARK_PLAN.md`.
@@ -67,8 +103,12 @@ VMD theo forecast origin
 → đánh giá test một lần
 ```
 
-File chạy chính của toàn bộ project là `run_pipeline_advanced.py`. Cấu hình mặc
-định hiện dự báo `Export_US` từ dữ liệu tháng trong `df_final.csv`.
+File chạy chính là `run_pipeline_advanced.py`; sau khi cài package bằng
+`pip install -e ./vmd_ardl_ffnn`, có thể dùng `vmd-ardl-ffnn-run` với cùng CLI.
+Mọi run phải truyền `--data`.
+`df_final.csv` đã bị loại vì lỗi tổng hợp dữ liệu và CLI từ chối file này.
+Các ví dụ legacy dưới đây yêu cầu một CSV khác đã kiểm định, có schema
+`TIME_PERIOD`, `Export_US` và các biến khai báo trong cấu hình.
 
 ## Chạy nhanh
 
@@ -78,29 +118,36 @@ thấy TensorFlow đã cài trong project:
 ```bash
 cd /home/cloud/cloud/DA/Project
 
-# Pipeline proposed mặc định
-./.venv/bin/python3 run_pipeline_advanced.py
+# Pipeline proposed mặc định trên dữ liệu legacy đã kiểm định
+./.venv/bin/python3 run_pipeline_advanced.py --data /path/to/validated_legacy.csv
 
 # Gọi tên pipeline rõ ràng
 ./.venv/bin/python3 run_pipeline_advanced.py \
-  --pipeline vmd-ardl-select-order
+  --pipeline vmd-ardl-select-order \
+  --data /path/to/validated_legacy.csv
 
 # Full paper benchmark, ablation và kiểm định thống kê
-./.venv/bin/python3 run_pipeline_advanced.py --pipeline benchmark
+./.venv/bin/python3 run_pipeline_advanced.py --pipeline benchmark --data /path/to/validated_legacy.csv
 
 # Study riêng: block-subset workflow là Proposed chính, shared mean-seed selection
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline block-proposed-benchmark \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025
 
-# So sánh gọn đúng 4 workflow, tất cả dùng shared mean-seed selector
+# So sánh shared mean: bốn FFNN workflow, VAR-NN và naïve
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline shared-mean-benchmark \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --tensorflow-device gpu \
+  --tensorflow-run-eagerly \
   --paper-seeds 7 42 123 2024 2025
 
 # Comparator hard-config: grid lag combinations, không grid FFNN hyperparameters
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline vmd-ardl-hard-ffnn \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025
 ```
 
@@ -115,8 +162,8 @@ và lỗi nếu pipeline thất bại.
 
 ## Cấu hình mặc định hiện tại
 
-Cấu hình của entrypoint được khai báo trong `build_experiment_config()` và
-`build_varnn_config()` của `run_pipeline_advanced.py`.
+Cấu hình legacy được khai báo trong `advanced_config.py`; cấu hình macro nằm
+trong `macro_benchmark.py`. `run_pipeline_advanced.py` chỉ là wrapper tương thích.
 
 | Nhóm | Cấu hình chính |
 | --- | --- |
@@ -129,14 +176,14 @@ Cấu hình của entrypoint được khai báo trong `build_experiment_config()
 | VMD | 3 modes + `RES`, `alpha=2000`, `sktime.libs.vmdpy` backend |
 | ARDL | AIC, target lag tối đa 12, exogenous lag tối đa 6 |
 | Lag specs | Staged search, tối đa 16 specs, giữ top 3 exogenous orders |
-| Lag fast-screen | 3 expanding folds × 12 tháng, thử cả LR `0.01` và `0.001` |
+| Lag fast-screen | 3 expanding folds × 12 tháng; learning rate theo profile đang chạy |
 | Lag shortlist | Top 4, luôn giữ raw RMSE winner và one-standard-error winner đơn giản nhất |
 | FFNN activation | `tanh` |
 | FFNN alpha | `1e-4`, `1e-3`, `1e-2`, `1e-1` |
-| FFNN learning rate | Pipeline thường/benchmark cũ dùng `0.001`; `block-proposed-benchmark` và `shared-mean-benchmark` validation cả `0.01`, `0.001` |
+| FFNN learning rate | Profile hiện tại dùng `0.001`; cấu hình grid nằm trong `build_experiment_config()` hoặc `build_macro_experiment_config()` |
 | FFNN seed grid ở single pipeline | `7`, `42`, `123`; chọn bằng validation |
 | Paper seeds | `7`, `42`, `123`, `2024`, `2025` |
-| VARNN | 32 hidden units, sigmoid; validation chỉ chọn learning rate |
+| VARNN | 32 hidden units, `tanh`, learning rate `0.001` trong profile shared-mean hiện tại |
 
 Nếu đổi target hoặc features, cần sửa cấu hình trong `run_pipeline_advanced.py`,
 hoặc dùng CLI linh hoạt `python -m vmd_ardl_ffnn.cli` sau khi package đã được cài.
@@ -206,6 +253,7 @@ Trong benchmark có thể bật chế độ two-stage riêng cho comparator:
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline benchmark \
+  --data /path/to/validated_legacy.csv \
   --block-subset-search-strategy two-stage
 ```
 
@@ -285,23 +333,24 @@ dùng để chẩn đoán.
 | `model-comparison` | So sánh proposed VMD–ARDL–FFNN với VARNN |
 | `benchmark` | Full benchmark B0–B7, proposed, ablation A0–A5, DM/Holm |
 | `block-proposed-benchmark` | Study riêng lấy block-subset two-stage làm Proposed, shared mean-seed benchmarks, ablation A0–A7, DM/Holm |
-| `shared-mean-benchmark` | Benchmark gọn đúng 4 workflow: no-VMD, Proposed hiện tại, Proposed cũ và joint-select; mọi stochastic winner dùng shared mean-seed selection; không chạy baseline, VARNN hay ablation |
+| `shared-mean-benchmark` | Bốn FFNN workflow shared mean, VAR-NN, LSTM và naïve; dùng `--dataset-profile us-unemployment` cho panel BLS/FRED có audit |
 | `sensitivity` | Robustness grid one-factor-at-a-time cho proposed model |
 
 Ví dụ:
 
 ```bash
 # Không VMD
-./.venv/bin/python3 run_pipeline_advanced.py --pipeline no-vmd
+./.venv/bin/python3 run_pipeline_advanced.py --pipeline no-vmd --data /path/to/validated_legacy.csv
 
 # Joint selection comparator
 ./.venv/bin/python3 run_pipeline_advanced.py \
-  --pipeline vmd-ardl-joint-select
+  --pipeline vmd-ardl-joint-select \
+  --data /path/to/validated_legacy.csv
 
 # Chọn output root khác
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline vmd-ardl-select-order \
-  --data df_final.csv \
+  --data /path/to/validated_legacy.csv \
   --output-root outputs
 ```
 
@@ -310,15 +359,18 @@ entrypoint. Truyền `--data` không tự động đổi target/features.
 
 ## Benchmark và ablation cho paper
 
-### Benchmark gọn 4 workflow với cùng shared-mean selector
+### Benchmark shared mean với VAR-NN, LSTM và naïve
 
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline shared-mean-benchmark \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --tensorflow-device gpu \
   --paper-seeds 7 42 123 2024 2025
 ```
 
-Pipeline này chỉ chạy bốn model sau:
+Pipeline này so sánh bảy model sau:
 
 | Vai trò | Pipeline artifact | Cơ chế lag/search |
 | --- | --- | --- |
@@ -326,12 +378,23 @@ Pipeline này chỉ chạy bốn model sau:
 | Proposed hiện tại | `vmd_ardl_block_subset_proposed` | Target-first, sinh AIC variable blocks, fast-screen trên train-only inner rolling folds, full-grid và chọn reconstructed winner trên outer validation |
 | Proposed cũ | `vmd_ardl_sequential_screen` | VMD, target-first, ARDL screen từng exogenous variable, rolling shared-mean lag screen |
 | Joint Select | `vmd_ardl_joint_select` | VMD, `ardl_select_order` chọn target và exogenous lags đồng thời |
+| VAR-NN | `varnn` | Chọn một cấu hình theo mean level validation RMSE qua reporting seeds |
+| LSTM | `lstm` | Dùng target và bốn ngoại sinh đến tháng `t−1`; chọn chung lookback, số hidden units và learning rate theo mean level validation RMSE qua reporting seeds |
+| Naïve | `naive_last_observation` | Dự báo bằng giá trị target tháng trước; không có seed |
 
 Với mỗi FFNN signature, validation RMSE được tính ở mọi `--paper-seeds` rồi lấy
 mean để xếp hạng. Chỉ một signature chung thắng; cùng lag/architecture/LR/alpha/
 activation đó được refit riêng ở từng seed. Ba pipeline có VMD chọn bằng mean
 **reconstructed-level** validation RMSE; no-VMD dùng mean **level** validation
 RMSE. Vì vậy seed không phải hyperparameter và pipeline không chọn “best seed”.
+
+LSTM dùng dữ liệu ở mức gốc, chuẩn hóa bằng train khi chọn cấu hình rồi bằng
+train+validation khi refit cho test. Mỗi dự báo tháng `t` chỉ nhận cửa sổ dữ liệu
+đến `t−1`. Grid mặc định gồm lookback 6/12 tháng, 16/32 hidden units và learning
+rate `0.001`; cấu hình thắng được khóa chung cho mọi seed. Dự báo test là rolling
+one-step, nên tại tháng `t` có thể dùng quan sát thật đã có ở các tháng trước.
+Kết quả chi tiết nằm trong `lstm/lstm_shared_validation_search.csv`,
+`lstm/lstm_shared_mean_seed_selection.csv` và `lstm/seed_<seed>/` của run mới.
 
 Riêng block-Proposed của pipeline này không dùng outer validation để giữ top 4
 block specs. Mỗi spec được fit bằng lightweight model cố định `alpha=0.1`, LR
@@ -345,7 +408,7 @@ fast-screen để bảo toàn protocol/artifact lịch sử của study đó.
 metric test tính riêng ở từng seed. `benchmark_ensemble_metrics_comparison.csv`
 là kết quả phụ sau khi average prediction của các seed. DM test cũng dùng
 ensemble-mean predictions trên các test dates chung. Pipeline này không tạo
-`ablation_metrics.csv` và không chạy VARNN, kể cả khi TensorFlow có sẵn.
+`ablation_metrics.csv`.
 
 ### Study mới: Block-subset làm Proposed chính
 
@@ -354,6 +417,7 @@ Chạy pipeline riêng sau để không thay đổi schema/artifact của `bench
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline block-proposed-benchmark \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025
 ```
 
@@ -437,9 +501,9 @@ Nơi định nghĩa hard-config:
 | --- | --- |
 | `vmd_ardl_ffnn/src/vmd_ardl_ffnn/config.py` | `HardFFNNPolicyConfig`: thresholds, width bounds, heavy-load ratio, alpha levels và số candidate giữ lại |
 | `vmd_ardl_ffnn/src/vmd_ardl_ffnn/hard_ffnn_policy.py` | `describe_target_imfs()`, bốn regime, bảng architecture/LR/alpha/activation và heavy-load adjustment |
-| `vmd_ardl_ffnn/src/vmd_ardl_ffnn/experiment_fixed.py` | `run_hard_ffnn_comparator()`: ARDL full-product search, fit theo seed, reconstructed selection, refit và ghi artifact |
+| `vmd_ardl_ffnn/src/vmd_ardl_ffnn/hard_ffnn_workflow.py` | `run_hard_ffnn_comparator()`: ARDL full-product search, fit theo seed, reconstructed selection, refit và ghi artifact |
 | `vmd_ardl_ffnn/src/vmd_ardl_ffnn/hard_ffnn_experiments.py` | Adapter dùng chung để đưa hard-config comparator vào hai benchmark studies |
-| `run_pipeline_advanced.py` | Chọn profile khi gọi `--pipeline vmd-ardl-hard-ffnn` và truyền reporting seeds |
+| `advanced_config.py` và `workflow_dispatch.py` | Chọn profile khi gọi `--pipeline vmd-ardl-hard-ffnn` và truyền reporting seeds |
 
 `ExperimentConfig` dùng `HardFFNNPolicyConfig()` qua `default_factory`, nên các
 giá trị mặc định nằm trong `config.py`, không nằm trong
@@ -540,6 +604,7 @@ Benchmark mặc định chạy 5 reporting seeds:
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline benchmark \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025
 ```
 
@@ -563,6 +628,7 @@ Mỗi benchmark study báo hai estimand riêng:
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline benchmark \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025 \
   --block-subset-search-strategy two-stage
 ```
@@ -575,6 +641,7 @@ Nếu môi trường không có TensorFlow hoặc chủ động loại B5:
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline benchmark \
+  --data /path/to/validated_legacy.csv \
   --skip-varnn
 ```
 
@@ -613,6 +680,7 @@ Smoke run trước bằng một seed:
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline sensitivity \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7
 ```
 
@@ -621,6 +689,7 @@ Full robustness study:
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
   --pipeline sensitivity \
+  --data /path/to/validated_legacy.csv \
   --paper-seeds 7 42 123 2024 2025
 ```
 
@@ -635,7 +704,7 @@ Project/
 ├── .python-version                 # Python version dùng bởi pyenv
 ├── .venv/                          # Virtual environment cục bộ; không commit
 ├── requirements.txt                # Dependency list tiện dụng ở repository root
-├── df_final.csv                    # Dataset mặc định của entrypoint
+├── df_final.csv                    # Dataset cũ bị loại; không dùng để train/evaluate
 ├── cpi_forecast_selected_variables.csv
 │                                     # Dataset thay thế; cần config cột phù hợp
 ├── run_pipeline_advanced.py        # Entrypoint run-scoped được khuyến nghị
@@ -670,6 +739,13 @@ Project/
         └── vmd_ardl_ffnn/
             ├── __init__.py
             ├── cli.py
+            ├── legacy_cli.py
+            ├── advanced_arguments.py
+            ├── advanced_config.py
+            ├── advanced_runner.py
+            ├── workflow_dispatch.py
+            ├── dataset_profiles.py
+            ├── benchmark_common.py
             ├── config.py
             ├── data.py
             ├── stationarity.py
@@ -678,6 +754,9 @@ Project/
             ├── decomposition.py
             ├── experiment.py
             ├── experiment_fixed.py
+            ├── block_subset_workflow.py
+            ├── shared_mean_workflow.py
+            ├── hard_ffnn_workflow.py
             ├── block_proposed_experiments.py
             ├── shared_mean_benchmark_experiments.py
             ├── paper_experiments.py
@@ -706,10 +785,13 @@ generated state, không phải source of truth. Source cần sửa luôn nằm t
 | File | Pipeline/chức năng |
 | --- | --- |
 | `experiment.py` | Public facade ổn định; chỉ re-export `VMDARDLFFNNExperiment` và `config_for_columns` từ core implementation |
-| `experiment_fixed.py` | Core engine của project: split/transform/VMD, ARDL lag selection, rolling screen, FFNN fit/refit, reconstruction; triển khai single run, no-VMD, shared mean-seed, block-subset, hard-config, comparison và benchmark facade. Tên `fixed` là lịch sử, không có nghĩa pipeline chỉ chạy fixed lag |
+| `experiment_fixed.py` | Lõi split/transform/VMD, ARDL lag selection, rolling screen, FFNN fit/refit, reconstruction và các facade benchmark. Tên `fixed` là lịch sử |
+| `block_subset_workflow.py`, `shared_mean_workflow.py`, `hard_ffnn_workflow.py` | Các phương thức thực thi ba nhánh benchmark, kế thừa trong experiment core |
+| `benchmark_common.py` | Hợp đồng chung cho metrics qua seed, date coverage, audit và chuẩn hóa forecast |
 | `paper_experiments.py` | Orchestrator cho `--pipeline benchmark`: benchmark gốc, A0–A5, baselines/VARNN/hard-config/block comparator, primary mean/std qua seed, ensemble table phụ, efficiency, DM/Holm và paper artifacts |
 | `block_proposed_experiments.py` | Orchestrator cho `--pipeline block-proposed-benchmark`: đưa A7 two-stage block-subset thành Proposed, chạy A0–A7 cùng sequential/joint/hard-config/VARNN comparators |
-| `shared_mean_benchmark_experiments.py` | Orchestrator gọn cho `--pipeline shared-mean-benchmark`: chỉ chạy no-VMD, block-subset Proposed hiện tại, sequential Proposed cũ và joint-select dưới cùng shared mean-seed selection/reporting protocol |
+| `shared_mean_benchmark_experiments.py` | Orchestrator cho `--pipeline shared-mean-benchmark`: bốn FFNN workflow shared mean, VAR-NN, LSTM và naïve trên cùng ngày dự báo |
+| `lstm_shared_mean.py`, `models/lstm.py` | Chọn cấu hình LSTM theo mean validation RMSE qua seed, refit và dự báo rolling one-step |
 | `hard_ffnn_experiments.py` | Adapter dùng chung cho hard-config comparator trong hai benchmark; ép ARDL target-first + top-3 full-product, gọi core engine và chuẩn hóa metrics/forecasts. Policy không được định nghĩa ở file này |
 | `sensitivity_experiments.py` | One-factor-at-a-time robustness study của Proposed: VMD modes/alpha, lag bounds, AIC/BIC, feasible full-product và split ratios; không dùng test để chọn profile thắng |
 
@@ -717,8 +799,9 @@ Luồng gọi chính:
 
 ```text
 run_pipeline_advanced.py
+→ advanced_arguments.py + advanced_runner.py + workflow_dispatch.py
 → VMDARDLFFNNExperiment trong experiment.py
-→ implementation trong experiment_fixed.py
+→ lõi trong experiment_fixed.py; block/shared-mean/hard methods trong các workflow module
 → paper/block/shared-mean/hard/sensitivity orchestrator tùy --pipeline
 → artifacts trong results/<pipeline>/<run_id>/
 ```
@@ -828,14 +911,16 @@ results/benchmark/<run_id>/
 └── <deterministic_baseline>/
 ```
 
-`shared-mean-benchmark` dùng cùng nhóm paper/benchmark artifact phía trên nhưng
-chỉ có bốn thư mục pipeline được liệt kê trong bảng “Benchmark gọn 4 workflow”.
-Nó không sinh `ablation_metrics.csv`, `ablation_forecasts.csv`, thư mục VARNN
-hay deterministic baseline.
+`shared-mean-benchmark` dùng cùng nhóm paper/benchmark artifact phía trên, có
+thêm thư mục `varnn/`, `lstm/` và `naive_last_observation/`. Nó không sinh
+`ablation_metrics.csv` hoặc `ablation_forecasts.csv`.
 
 Trong các FFNN validation tables, `learning_rate_init` là learning rate của
-candidate. Trong mỗi VARNN seed directory, `varnn_validation_search.csv` lưu hai
-candidate learning rate và winner.
+candidate. Trong mỗi VARNN seed directory, `varnn_validation_search.csv` lưu
+các candidate thuộc grid của profile; bảng `varnn/shared_selection.csv` lưu
+cấu hình thắng theo trung bình validation RMSE qua reporting seeds. LSTM lưu
+grid và bảng chọn chung tại `lstm/lstm_shared_validation_search.csv` và
+`lstm/lstm_shared_mean_seed_selection.csv`.
 
 Các thư mục `results_vmd/`, `results_vmd-ardl-select-order/`,
 `results_vmd-ardl-joint-select/`, `vmd_ardl_ffnn/results*` là artifact legacy.
@@ -854,7 +939,7 @@ python3 -m venv .venv
 ```
 
 Project mặc định dùng self-contained VMD nên không bắt buộc `vmdpy`. TensorFlow
-chỉ cần cho VARNN. `requirements.txt` ở root là danh sách tối giản/legacy;
+cần cho VARNN và LSTM. `requirements.txt` ở root là danh sách tối giản/legacy;
 `vmd_ardl_ffnn/pyproject.toml` mới là nguồn dependency đầy đủ.
 
 Kiểm tra TensorFlow trong đúng venv:

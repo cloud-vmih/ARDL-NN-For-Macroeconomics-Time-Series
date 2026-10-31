@@ -1,6 +1,5 @@
-"""VMD/ARDL/FFNN forecasting and panel flood-proxy experiments."""
+"""VMD/ARDL/FFNN forecasting experiments."""
 
 from .experiment import VMDARDLFFNNExperiment
-from .flood_hybrid import ARDLFFNNResidualForecaster
 
-__all__ = ["ARDLFFNNResidualForecaster", "VMDARDLFFNNExperiment"]
+__all__ = ["VMDARDLFFNNExperiment"]

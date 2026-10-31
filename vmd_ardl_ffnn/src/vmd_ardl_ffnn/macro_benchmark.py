@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-import hashlib
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -11,8 +10,8 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from statsmodels.tsa.ardl import ARDL
 
-from .artifacts import write_csv
-from .block_proposed_experiments import _normalized_result
+from .artifacts import file_sha256, write_csv
+from .benchmark_common import aggregate_seed_metrics, normalized_result
 from .config import (
     ARDLSelectionConfig,
     DataConfig,
@@ -25,7 +24,6 @@ from .config import (
 from .experiment import VMDARDLFFNNExperiment
 from .metrics import evaluate_forecast
 from .models.tensorflow_runtime import bootstrap_tensorflow
-from .paper_experiments import _aggregate_seed_metrics
 from .shared_mean_benchmark_experiments import run_shared_mean_benchmark_experiments
 
 
@@ -45,11 +43,12 @@ CORE_PIPELINES = (
     "vmd_ardl_block_subset_proposed",
     "vmd_ardl_sequential_screen",
     "vmd_ardl_joint_select",
+    "varnn",
+    "naive_last_observation",
     "vmd_ardl_univariate_shared_mean",
 )
 FULL_ONLY_PIPELINES = (
     "notebook_exact_reproduction",
-    "naive_last_observation",
     "notebook_mlp_fair",
     "notebook_lstm_fair",
     "notebook_gru_fair",
@@ -75,14 +74,6 @@ def pipelines_for_profile(profile: str) -> tuple[str, ...]:
     if normalized == "full":
         return CORE_PIPELINES + FULL_ONLY_PIPELINES
     raise ValueError("macro profile must be 'core-only' or 'full'.")
-
-
-def file_sha256(path: str | Path) -> str:
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def load_macro_dataset(path: str | Path) -> MacroDataset:
@@ -284,7 +275,9 @@ def _run_project_workflows(
     *,
     seeds: tuple[int, ...],
 ) -> dict[str, Any]:
-    shared = run_shared_mean_benchmark_experiments(prepared_csv, config, seeds=seeds)
+    shared = run_shared_mean_benchmark_experiments(
+        prepared_csv, config, seeds=seeds, include_lstm=False,
+    )
     univariate_pipeline = "vmd_ardl_univariate_shared_mean"
     univariate_model = "VMD_ARDL_Univariate_SharedMeanSeed_FFNN"
     univariate_config = replace(
@@ -309,7 +302,7 @@ def _run_project_workflows(
         screening_mode="none",
         artifact_stem=univariate_pipeline,
     )
-    univariate_metrics, univariate_forecasts = _normalized_result(
+    univariate_metrics, univariate_forecasts = normalized_result(
         univariate_result,
         pipeline=univariate_pipeline,
         model=univariate_model,
@@ -323,7 +316,7 @@ def _run_project_workflows(
         ignore_index=True,
         sort=False,
     )
-    aggregate = _aggregate_seed_metrics(seed_metrics)
+    aggregate = aggregate_seed_metrics(seed_metrics)
     settings = pd.concat(
         [
             shared["settings"],
@@ -357,7 +350,7 @@ def _run_project_workflows(
         "comparison_metrics": aggregate,
         "comparison_forecasts": forecasts,
         "settings": settings,
-        "shared_four": shared,
+        "shared_workflows": shared,
         "univariate": univariate_result,
     }
 

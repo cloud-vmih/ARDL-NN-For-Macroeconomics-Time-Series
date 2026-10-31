@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 import importlib.util
+import json
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
@@ -139,24 +141,116 @@ def test_runner_returns_nonzero_for_missing_dataset(tmp_path: Path) -> None:
     assert runner.main(["--data", str(tmp_path / "missing.csv")]) == 2
 
 
+def test_runner_requires_explicit_dataset(capsys) -> None:
+    runner = _runner_module()
+    with pytest.raises(SystemExit) as exc:
+        runner.parse_args([])
+    assert exc.value.code == 2
+    assert "--data" in capsys.readouterr().err
+
+
+def test_runner_rejects_invalid_legacy_dataset(capsys) -> None:
+    runner = _runner_module()
+    with pytest.raises(SystemExit) as exc:
+        runner.parse_args(["--data", "df_final.csv"])
+    assert exc.value.code == 2
+    assert "df_final.csv" in capsys.readouterr().err
+
+
+def test_runner_rejects_symlink_to_invalid_legacy_dataset(tmp_path: Path) -> None:
+    source = tmp_path / "df_final.csv"
+    source.write_text("invalid")
+    alias = tmp_path / "alias.csv"
+    alias.symlink_to(source)
+
+    runner = _runner_module()
+    with pytest.raises(SystemExit):
+        runner.parse_args(["--data", str(alias)])
+
+
+def test_runner_default_output_root_follows_working_directory(tmp_path: Path, monkeypatch) -> None:
+    runner = _runner_module()
+    monkeypatch.chdir(tmp_path)
+
+    args = runner.parse_args(["--data", "valid.csv"])
+
+    assert args.output_root == tmp_path / "results"
+
+
+@pytest.mark.parametrize("pipeline", ["shared-mean-benchmark", "macro-benchmark"])
+def test_runner_rejects_skip_varnn_when_it_would_be_ignored(pipeline: str) -> None:
+    runner = _runner_module()
+    with pytest.raises(SystemExit):
+        runner.parse_args(["--pipeline", pipeline, "--data", "valid.csv", "--skip-varnn"])
+
+
+def test_packaged_cli_accepts_the_audited_benchmark_options(capsys) -> None:
+    from vmd_ardl_ffnn import cli
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--help"])
+    assert exc.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "--dataset-profile" in help_text
+    assert "--data" in help_text
+
+
+def test_legacy_cli_rejects_invalid_compiled_dataset(monkeypatch, capsys) -> None:
+    from vmd_ardl_ffnn import legacy_cli
+
+    monkeypatch.setattr(sys, "argv", ["legacy", "--data", "df_final.csv", "--features", "PCE"])
+    with pytest.raises(SystemExit) as exc:
+        legacy_cli.main()
+    assert exc.value.code == 2
+    assert "df_final.csv" in capsys.readouterr().err
+
+
+def test_legacy_cli_rejects_skip_varnn_for_shared_mean(monkeypatch) -> None:
+    from vmd_ardl_ffnn import legacy_cli
+
+    monkeypatch.setattr(sys, "argv", [
+        "legacy", "--pipeline", "shared-mean-benchmark", "--data", "valid.csv",
+        "--features", "PCE", "--skip-varnn",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        legacy_cli.main()
+    assert exc.value.code == 2
+
+
+def test_standalone_legacy_sample_rejects_invalid_compiled_dataset() -> None:
+    from ardl_ffnn_model import main as legacy_sample
+
+    with pytest.raises(ValueError, match="df_final.csv"):
+        legacy_sample("df_final.csv")
+
+
 def test_runner_parses_block_subset_two_stage_option() -> None:
     runner = _runner_module()
     args = runner.parse_args(
-        ["--pipeline", "benchmark", "--block-subset-search-strategy", "two-stage"]
+        ["--pipeline", "benchmark", "--block-subset-search-strategy", "two-stage", "--data", "macro_indicators.csv"]
     )
     assert args.block_subset_search_strategy == "two-stage"
 
 
 def test_runner_exposes_separate_block_proposed_pipeline() -> None:
     runner = _runner_module()
-    args = runner.parse_args(["--pipeline", "block-proposed-benchmark"])
+    args = runner.parse_args(["--pipeline", "block-proposed-benchmark", "--data", "macro_indicators.csv"])
     assert args.pipeline == "block-proposed-benchmark"
 
 
 def test_runner_exposes_shared_mean_benchmark_pipeline() -> None:
     runner = _runner_module()
-    args = runner.parse_args(["--pipeline", "shared-mean-benchmark"])
+    args = runner.parse_args(["--pipeline", "shared-mean-benchmark", "--data", "macro_indicators.csv"])
     assert args.pipeline == "shared-mean-benchmark"
+
+
+def test_runner_accepts_eager_training_for_memory_limited_run() -> None:
+    runner = _runner_module()
+    args = runner.parse_args([
+        "--pipeline", "shared-mean-benchmark", "--data", "macro_indicators.csv",
+        "--tensorflow-run-eagerly",
+    ])
+    assert args.tensorflow_run_eagerly is True
 
 
 def test_runner_exposes_macro_profiles_and_gpu_policy() -> None:
@@ -171,6 +265,8 @@ def test_runner_exposes_macro_profiles_and_gpu_policy() -> None:
             "gpu",
             "--gpu-index",
             "1",
+            "--data",
+            "macro_indicators.csv",
         ]
     )
     assert args.macro_profile == "core-only"
@@ -181,13 +277,13 @@ def test_runner_exposes_macro_profiles_and_gpu_policy() -> None:
 
 def test_runner_exposes_hard_ffnn_pipeline() -> None:
     runner = _runner_module()
-    args = runner.parse_args(["--pipeline", "vmd-ardl-hard-ffnn"])
+    args = runner.parse_args(["--pipeline", "vmd-ardl-hard-ffnn", "--data", "macro_indicators.csv"])
     assert args.pipeline == "vmd-ardl-hard-ffnn"
 
 
 def test_runner_exposes_sequential_vmd_ardl_ffnn_pipeline() -> None:
     runner = _runner_module()
-    args = runner.parse_args(["--pipeline", "sequential-vmd-ardl-ffnn"])
+    args = runner.parse_args(["--pipeline", "sequential-vmd-ardl-ffnn", "--data", "macro_indicators.csv"])
     assert args.pipeline == "sequential-vmd-ardl-ffnn"
     config = runner.build_experiment_config(args.pipeline, Path("out"))
     assert config.ardl.target_lag_strategy == "ardl_select_order"
@@ -727,9 +823,9 @@ def test_paper_orchestrator_builds_benchmark_ablation_and_dm_tables(
 
     monkeypatch.setattr(paper, "run_naive_baseline", fake_naive)
     monkeypatch.setattr(paper, "run_linear_ardl_baseline", fake_ardl)
-    monkeypatch.setattr(paper, "_run_neural_variant", fake_neural)
+    monkeypatch.setattr(paper, "run_neural_variant", fake_neural)
     monkeypatch.setattr(paper, "_run_block_subset_mean_seed_variant", fake_block_subset)
-    monkeypatch.setattr(paper, "_run_hard_ffnn_variant", fake_hard_ffnn)
+    monkeypatch.setattr(paper, "run_hard_ffnn_variant", fake_hard_ffnn)
     csv_path = tmp_path / "study.csv"
     pd.DataFrame(
         {
@@ -913,12 +1009,12 @@ def test_block_proposed_orchestrator_builds_shared_benchmark_and_a0_a7(
 
     monkeypatch.setattr(study, "run_naive_baseline", fake_naive)
     monkeypatch.setattr(study, "run_linear_ardl_baseline", fake_ardl)
-    monkeypatch.setattr(study, "_run_shared_vmd_variant", fake_shared_vmd)
-    monkeypatch.setattr(study, "_run_shared_no_vmd_variant", fake_shared_no_vmd)
-    monkeypatch.setattr(study, "_run_shared_block_variant", fake_shared_block)
-    monkeypatch.setattr(study, "_run_hard_ffnn_variant", fake_hard_ffnn)
+    monkeypatch.setattr(study, "run_shared_vmd_variant", fake_shared_vmd)
+    monkeypatch.setattr(study, "run_shared_no_vmd_variant", fake_shared_no_vmd)
+    monkeypatch.setattr(study, "run_shared_block_variant", fake_shared_block)
+    monkeypatch.setattr(study, "run_hard_ffnn_variant", fake_hard_ffnn)
     monkeypatch.setattr(study, "_run_per_seed_block_variant", fake_per_seed_block)
-    monkeypatch.setattr(study, "_run_varnn_shared_mean_seed", unavailable_varnn)
+    monkeypatch.setattr(study, "run_varnn_shared_mean_seed", unavailable_varnn)
     monkeypatch.setattr(study, "write_paper_figures", lambda *args, **kwargs: None)
 
     csv_path = tmp_path / "study.csv"
@@ -1083,11 +1179,36 @@ def test_shared_mean_orchestrator_runs_exact_requested_model_set(
         )
 
     empty_audit = (pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
-    monkeypatch.setattr(study, "_dataset_audit", lambda *args: empty_audit)
-    monkeypatch.setattr(study, "_run_shared_vmd_variant", fake_runner)
-    monkeypatch.setattr(study, "_run_shared_no_vmd_variant", fake_runner)
-    monkeypatch.setattr(study, "_run_shared_block_variant", fake_runner)
+    monkeypatch.setattr(study, "dataset_audit", lambda *args: empty_audit)
+    monkeypatch.setattr(study, "run_shared_vmd_variant", fake_runner)
+    monkeypatch.setattr(study, "run_shared_no_vmd_variant", fake_runner)
+    monkeypatch.setattr(study, "run_shared_block_variant", fake_runner)
     monkeypatch.setattr(study, "write_paper_figures", lambda *args, **kwargs: None)
+
+    def fake_varnn(csv_path, config, varnn_config, *, seeds, output_dir):
+        metrics, forecasts = frames("varnn", "VARNN_SharedMeanSeed", 0.08)
+        ranking = pd.DataFrame({"hidden_units": [32], "selected": [True]})
+        return ([{"selected": 32}], metrics, forecasts, ranking, 4)
+
+    lstm_calls = []
+
+    def fake_lstm(csv_path, config, lstm_config, *, seeds, output_dir):
+        lstm_calls.append((tuple(seeds), output_dir))
+        metrics, forecasts = frames("lstm", "LSTM_SharedMeanSeed", 0.07)
+        ranking = pd.DataFrame({"lookback": [6], "hidden_units": [16],
+                                "learning_rate": [0.001], "selected": [True]})
+        return ([{"selected": 6}], metrics, forecasts, ranking, 6)
+
+    def fake_naive(csv_path, config, *, lag, model_name):
+        metrics, forecasts = frames(model_name, model_name, 0.09)
+        return {
+            "metrics": metrics.loc[metrics["seed"].eq(seeds[0])].drop(columns="seed"),
+            "forecasts": forecasts.loc[forecasts["seed"].eq(seeds[0])].drop(columns="seed"),
+        }
+
+    monkeypatch.setattr(study, "run_varnn_shared_mean_seed", fake_varnn, raising=False)
+    monkeypatch.setattr(study, "run_lstm_shared_mean_seed", fake_lstm, raising=False)
+    monkeypatch.setattr(study, "run_naive_baseline", fake_naive, raising=False)
 
     csv_path = tmp_path / "study.csv"
     pd.DataFrame(
@@ -1106,20 +1227,27 @@ def test_shared_mean_orchestrator_runs_exact_requested_model_set(
         seeds=seeds,
     )
 
+    assert len(lstm_calls) == 1
+    assert "lstm" in set(result["comparison_metrics"]["pipeline"])
+
     assert set(result["comparison_metrics"]["pipeline"]) == set(
         study.SHARED_MEAN_BENCHMARK_PIPELINES
-    )
+    ) | {"naive_last_observation"}
     assert result["comparison_metrics"]["estimand"].eq(
         "distribution_of_per_seed_metrics"
     ).all()
-    assert result["comparison_metrics"]["RMSE_count"].eq(len(seeds)).all()
+    stochastic = result["comparison_metrics"].query("pipeline != 'naive_last_observation'")
+    assert stochastic["RMSE_count"].eq(len(seeds)).all()
+    assert result["comparison_metrics"].query("pipeline == 'naive_last_observation'")["RMSE_count"].eq(1).all()
     assert result["ensemble_comparison_metrics"]["estimand"].eq(
         "ensemble_mean_prediction"
     ).all()
-    assert result["settings"]["shared_configuration_across_seeds"].all()
-    assert result["settings"]["selection_seed_aggregation"].eq(
+    assert result["settings"].query("pipeline != 'naive_last_observation'")["shared_configuration_across_seeds"].all()
+    assert result["settings"].query("pipeline != 'naive_last_observation'")["selection_seed_aggregation"].eq(
         "shared_mean_validation_across_reporting_seeds"
     ).all()
+    assert set(result["comparison_forecasts"]["pipeline"]) == set(study.SHARED_MEAN_BENCHMARK_PIPELINES) | {"naive_last_observation"}
+    assert set(result["date_coverage"]["pipeline"]) == set(study.SHARED_MEAN_BENCHMARK_PIPELINES) | {"naive_last_observation"}
     assert len(calls) == 4
     joint_call = next(
         call
@@ -1154,8 +1282,191 @@ def test_directional_accuracy_uses_previous_actual() -> None:
     assert metrics["R2"] == pytest.approx(0.375)
 
 
+def test_shared_mean_rejects_a_missing_date_in_one_seed() -> None:
+    from vmd_ardl_ffnn.shared_mean_benchmark_experiments import _require_complete_coverage
+
+    frame = pd.DataFrame(
+        [
+            {"pipeline": pipeline, "split": split, "date": date, "seed": seed, "actual": 4.0, "predicted": 4.0}
+            for split in ("validation", "test")
+            for pipeline, seed, dates in (
+                ("varnn", 1, ("2024-01-01", "2024-02-01")),
+                ("varnn", 2, ("2024-01-01",)),
+                ("naive_last_observation", None, ("2024-01-01", "2024-02-01")),
+            )
+            for date in dates
+        ]
+    )
+    with pytest.raises(ValueError, match="varnn.*seed 2.*2024-02"):
+        _require_complete_coverage(frame, (1, 2), ("varnn",))
+
+
+def test_shared_varnn_reports_directional_accuracy_per_seed(tmp_path: Path, monkeypatch) -> None:
+    from vmd_ardl_ffnn import block_proposed_experiments as study
+    from vmd_ardl_ffnn.models.varnn import VARNNConfig
+
+    dates = pd.date_range("2024-01-01", periods=3, freq="MS")
+
+    def fake_varnn(csv_path, config, current, *, validation_only=False):
+        if validation_only:
+            return {"validation_search": pd.DataFrame([{
+                "seed": current.seed, "hidden_units": 32, "activation": "tanh",
+                "learning_rate": 0.001, "Val Level RMSE": 0.4,
+                "Val Level MAE": 0.3, "Val Level MAPE": 1.0,
+            }])}
+        forecasts = pd.DataFrame([
+            {"date": date, "split": split, "actual_level": actual,
+             "predicted_level": predicted}
+            for split in ("validation", "test")
+            for date, actual, predicted in zip(dates, (10.0, 12.0, 11.0), (10.0, 11.0, 11.5))
+        ])
+        metrics = pd.DataFrame([
+            {"model": "VARNN_SharedMeanSeed", "target": "Y", "split": split,
+             "scale": "level", "RMSE": 0.5, "MAE": 0.5, "MAPE": 4.0}
+            for split in ("validation", "test")
+        ])
+        return {"metrics": metrics, "forecasts": forecasts}
+
+    monkeypatch.setattr(study, "run_varnn_pipeline", fake_varnn)
+    _, metrics, _, _, _ = study.run_varnn_shared_mean_seed(
+        tmp_path / "unused.csv", ExperimentConfig(output_dir=tmp_path),
+        VARNNConfig(hidden_units_grid=(32,)), seeds=(1, 2), output_dir=tmp_path / "varnn",
+    )
+
+    assert metrics["Directional_Accuracy"].tolist() == [100.0] * 4
+
+
+def test_us_unemployment_profile_requires_explicit_audited_panel(tmp_path: Path, monkeypatch) -> None:
+    runner = _runner_module()
+    with pytest.raises(SystemExit):
+        runner.parse_args(["--pipeline", "shared-mean-benchmark", "--dataset-profile", "us-unemployment"])
+    with pytest.raises(SystemExit):
+        runner.parse_args(["--pipeline", "varnn", "--dataset-profile", "us-unemployment", "--data", "x.csv"])
+    with pytest.raises(SystemExit):
+        runner.parse_args([
+            "--pipeline", "shared-mean-benchmark", "--dataset-profile", "us-unemployment",
+            "--data", "x.csv", "--skip-varnn",
+        ])
+
+    source = tmp_path / "us_unemployment_awhman_2000_2025_09.csv"
+    dates = pd.date_range("2000-01-01", periods=309, freq="MS")
+    pd.DataFrame({
+        "date": dates,
+        "unemployment_rate": [4.0] * 309,
+        "manufacturing_hours": [41.5] * 309,
+        "nonfarm_payrolls": [130000.0] * 309,
+        "cpi_all_items": [200.0] * 309,
+        "industrial_prod": [100.0] * 309,
+    }).to_csv(source, index=False)
+    audit = {
+        "panel_sha256": runner.file_sha256(source), "row_count": 309,
+        "start": "2000-01-01", "end": "2025-09-01",
+        "series": [{"series_id": series} for series in ("UNRATE", "AWHMAN", "PAYEMS", "CPIAUCSL", "INDPRO")],
+        "snapshots": [
+            {"series_id": series, "raw_sha256": "a" * 64}
+            for series in ("UNRATE", "AWHMAN", "PAYEMS", "CPIAUCSL", "INDPRO")
+        ],
+    }
+    source.with_suffix(".audit.json").write_text(json.dumps(audit))
+    config, metadata = runner.build_us_unemployment_profile(
+        source, tmp_path / "out", runtime=TensorFlowRuntimeConfig(device="cpu"),
+        scaler="standard", seeds=(7, 42),
+    )
+    assert config.data.target == "unemployment_rate"
+    assert config.data.features == ("manufacturing_hours", "nonfarm_payrolls", "cpi_all_items", "industrial_prod")
+    assert config.data.log_transform is False
+    assert metadata["panel_sha256"] == audit["panel_sha256"]
+    assert len(metadata["source_audit_sha256"]) == 64
+    assert len(metadata["benchmark_model_set"]) == 7
+    monkeypatch.setattr(runner, "SEQUENTIAL_MACRO_FEATURES", ("different_feature",))
+    config_again, _ = runner.build_us_unemployment_profile(
+        source, tmp_path / "out", runtime=TensorFlowRuntimeConfig(device="cpu"),
+        scaler="standard", seeds=(7,),
+    )
+    assert config_again.data.features == config.data.features
+    audit["panel_sha256"] = "0" * 64
+    source.with_suffix(".audit.json").write_text(json.dumps(audit))
+    with pytest.raises(ValueError, match="hash"):
+        runner.build_us_unemployment_profile(
+            source, tmp_path / "out", runtime=TensorFlowRuntimeConfig(device="cpu"),
+            scaler="standard", seeds=(7,),
+        )
+
+
+def test_us_profile_manifest_cannot_succeed_with_missing_models(tmp_path: Path, monkeypatch) -> None:
+    from vmd_ardl_ffnn import advanced_runner
+
+    runner = _runner_module()
+    source = tmp_path / "us_unemployment_awhman_2000_2025_09.csv"
+    pd.DataFrame({
+        "date": pd.date_range("2000-01-01", periods=309, freq="MS"),
+        "unemployment_rate": [4.0] * 309,
+        "manufacturing_hours": [41.5] * 309,
+        "nonfarm_payrolls": [130000.0] * 309,
+        "cpi_all_items": [200.0] * 309,
+        "industrial_prod": [100.0] * 309,
+    }).to_csv(source, index=False)
+    ids = ("UNRATE", "AWHMAN", "PAYEMS", "CPIAUCSL", "INDPRO")
+    source.with_suffix(".audit.json").write_text(json.dumps({
+        "panel_sha256": runner.file_sha256(source), "row_count": 309,
+        "start": "2000-01-01", "end": "2025-09-01",
+        "series": [{"series_id": series} for series in ids],
+        "snapshots": [{"series_id": series, "raw_sha256": "a" * 64} for series in ids],
+    }))
+    monkeypatch.setattr(
+        advanced_runner, "run_pipeline",
+        lambda *args, **kwargs: ({
+            "comparison_metrics": pd.DataFrame([{"pipeline": "varnn", "RMSE_mean": 0.1}]),
+            "comparison_forecasts": pd.DataFrame([{"pipeline": "varnn"}]),
+        }, "comparison_metrics"),
+    )
+    status = runner.main([
+        "--pipeline", "shared-mean-benchmark", "--dataset-profile", "us-unemployment",
+        "--data", str(source), "--output-root", str(tmp_path / "runs"),
+        "--run-id", "incomplete", "--tensorflow-device", "cpu",
+    ])
+    manifest = json.loads((tmp_path / "runs" / "shared-mean-benchmark" / "incomplete" / "manifest.json").read_text())
+    copied_audit = tmp_path / "runs" / "shared-mean-benchmark" / "incomplete" / "source_audit.json"
+    assert status == 1
+    assert manifest["status"] == "failed"
+    assert manifest["metadata"]["panel_sha256"] == runner.file_sha256(source)
+    assert copied_audit.is_file()
+    assert runner.file_sha256(copied_audit) == manifest["metadata"]["source_audit_sha256"]
+
+
+def test_us_result_validation_rejects_missing_reporting_seed(tmp_path: Path) -> None:
+    runner = _runner_module()
+    panel = tmp_path / "panel.csv"
+    audit = tmp_path / "audit.json"
+    panel.write_text("panel")
+    audit.write_text("audit")
+    models = (*runner.SHARED_MEAN_BENCHMARK_PIPELINES, runner.NAIVE_PIPELINE)
+    coverage = pd.DataFrame([
+        {"pipeline": model, "split": split, "n_dates": count, "same_dates_for_all_models": True}
+        for model in models
+        for split, count in (("validation", 46), ("test", 47))
+    ])
+    metrics = pd.DataFrame([
+        {"pipeline": model, "split": split, "seed": 7 if model != runner.NAIVE_PIPELINE else None}
+        for model in models for split in ("validation", "test")
+    ])
+    results = {
+        "comparison_metrics": pd.DataFrame({"pipeline": models}),
+        "comparison_forecasts": metrics.copy(),
+        "settings": pd.DataFrame({"pipeline": models}),
+        "date_coverage": coverage,
+        "seed_metrics": metrics,
+    }
+    metadata = {
+        "paper_seeds": (7, 42), "panel_sha256": runner.file_sha256(panel),
+        "source_audit_path": str(audit), "source_audit_sha256": runner.file_sha256(audit),
+    }
+    with pytest.raises(ValueError, match="seed"):
+        runner._validate_us_unemployment_result(results, metadata, panel)
+
+
 def test_ensemble_metrics_average_predictions_before_scoring() -> None:
-    from vmd_ardl_ffnn.paper_experiments import _ensemble_prediction_metrics
+    from vmd_ardl_ffnn.benchmark_common import ensemble_prediction_metrics
 
     dates = pd.date_range("2024-01-01", periods=2, freq="MS")
     forecasts = pd.DataFrame(
@@ -1176,7 +1487,7 @@ def test_ensemble_metrics_average_predictions_before_scoring() -> None:
             "target": ["Y", "Y"],
         }
     )
-    result = _ensemble_prediction_metrics(forecasts, seed_metrics)
+    result = ensemble_prediction_metrics(forecasts, seed_metrics)
     assert result.iloc[0]["ensemble_member_count"] == 2
     assert result.iloc[0]["RMSE"] == 0.0
 

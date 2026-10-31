@@ -17,14 +17,18 @@ Sử dụng lại pipeline `shared-mean-benchmark` để so sánh bốn workflow
 | Cột trong bộ dữ liệu | Chuỗi FRED | Cách lấy |
 | --- | --- | --- |
 | `unemployment_rate` | `UNRATE` | Giá trị được công bố lần đầu của từng tháng; dùng làm nhãn và giá trị trễ. |
-| `initial_claims` | `ICSA` | Trung bình số học các tuần có ngày kết thúc vào tháng tham chiếu. |
+| `manufacturing_hours` | `AWHMAN` | Số giờ làm việc bình quân mỗi tuần của lao động sản xuất và phi quản lý ngành chế tạo, đã điều chỉnh mùa vụ. |
 | `nonfarm_payrolls` | `PAYEMS` | Giá trị mức theo tháng. |
 | `cpi_all_items` | `CPIAUCSL` | Giá trị mức theo tháng. |
 | `industrial_prod` | `INDPRO` | Giá trị mức theo tháng. |
 
-Dùng dữ liệu theo **vintage** từ API FRED/ALFRED. Với biến đầu vào của tháng `m`, cố định phiên bản đã thấy tại cuối tháng `m+1`, là thời điểm sớm nhất được phép dùng trong thiết kế trễ một tháng. Chương trình phải kiểm tra ngày công bố thực tế; nếu một giá trị vẫn chưa có ở thời điểm dự báo thì báo lỗi rõ chuỗi và tháng, không âm thầm dời tháng hoặc nội suy. Lưu mã chuỗi, đơn vị, quy tắc gộp tuần, mốc vintage, thời gian tải và mã băm của dữ liệu nguồn lẫn panel. Khóa `FRED_API_KEY` chỉ đọc từ biến môi trường, không ghi vào log hay artifact.
+Dùng dữ liệu theo **vintage** từ API FRED/ALFRED. Với biến đầu vào của tháng `m`, cố định phiên bản đã thấy tại cuối tháng `m+1`, là thời điểm sớm nhất được phép dùng trong thiết kế trễ một tháng. Mọi chuỗi phải có đúng quan sát của tháng `m` tại vintage đó; thiếu thì báo lỗi, không thay bằng tháng cũ, không nội suy hay lấy vintage tương lai. Lưu mã chuỗi, đơn vị, mốc vintage, thời gian tải và mã băm của dữ liệu nguồn lẫn panel. Khóa `FRED_API_KEY` chỉ đọc từ biến môi trường, không ghi vào log hay artifact.
 
-Đầu vào bất biến của benchmark sẽ là `data/macro_us/processed/us_unemployment_2000_2025_09.csv`, gồm cột ngày và năm cột số ở bảng trên. File audit JSON nằm cạnh panel.
+**Quyết định cập nhật:** dùng AWHMAN thay HOUST trong benchmark chính. HOUST chưa công bố đúng hạn ở 09–10/2013 và 12/2018–01/2019; không gán giá trị tháng khác vào cột cùng tháng. AWHMAN gần thị trường lao động hơn vì giờ làm ngành chế tạo thường được điều chỉnh trước quyết định tuyển hoặc sa thải. ALFRED chỉ có lịch sử vintage ICSA từ tháng 05/2009, nên ICSA cũng không thể dùng cho phần train 2000–2009.
+
+**Ngoại lệ đã kiểm toán cho dòng cuối 09/2025:** INDPRO tháng này chưa có tại 30/11/2025 do đợt đóng cửa chính phủ. Lấy bản vintage 31/01/2026 và đánh dấu `used_in_forecasts=false` trong audit. Mọi lag ngoại sinh đều ít nhất một tháng, còn 10/2025 không có nhãn `UNRATE`, nên các ô ngoại sinh 09/2025 không đi vào dự báo nào của study. Dữ liệu tháng trước đó vẫn phải đạt kiểm tra công bố đúng hạn. Bộ tải giới hạn dưới 120 yêu cầu/phút và thử lại khi gặp lỗi 429/5xx.
+
+Đầu vào bất biến của benchmark sẽ là `data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv`, gồm cột ngày và năm cột số ở bảng trên. File audit JSON nằm cạnh panel.
 
 ## Các workflow được so sánh
 
@@ -47,18 +51,30 @@ Năm workflow có huấn luyện ngẫu nhiên dùng cùng các seed `7, 42, 123
 
 - Viết module lấy đúng năm chuỗi từ FRED/ALFRED, đọc `FRED_API_KEY` ở điểm vào CLI.
 - Cache phản hồi theo mã chuỗi, ngày vintage, kiểu dữ liệu API và phiên bản schema; lưu mã băm SHA-256.
+- Giới hạn tốc độ yêu cầu theo quy định FRED và retry khi gặp 429/5xx; chạy lại sau gián đoạn sẽ dùng cache đã có.
 - Viết test offline bằng phản hồi API giả để kiểm tra tham số, giá trị thiếu, cache hit và việc khóa API không lọt vào file/log.
 
 **Hoàn thành khi:** cùng một yêu cầu đọc được từ cache mà không gọi mạng và audit truy ra được dữ liệu nguồn đã dùng.
 
 ### 2. Dựng panel theo thời điểm công bố
 
-- Chuyển `ICSA` từ tuần sang tháng theo ngày kết thúc tuần; ghép bốn chuỗi tháng còn lại.
+- Ghép năm chuỗi tháng `UNRATE`, `AWHMAN`, `PAYEMS`, `CPIAUCSL`, `INDPRO` theo tháng tham chiếu.
 - Lấy `UNRATE` bản công bố đầu tiên làm nhãn; cố định vintage của các biến đầu vào; kiểm tra chúng đã sẵn có ở thời điểm dự báo.
+- Bắt buộc mọi giá trị ngoại sinh đúng tháng tham chiếu và đã công bố tại ngày chốt; nếu thiếu thì dừng với lỗi chỉ rõ chuỗi và tháng.
+- Riêng ngoại sinh 09/2025 dùng vintage 31/01/2026 và ghi rõ chúng không được dùng làm đầu vào dự báo; thêm fixture cho lịch công bố trễ.
 - Từ chối tháng trùng, tháng thiếu, giá trị không hữu hạn, lịch tháng sai và trường hợp 10/2025 bị điền giả.
 - Xuất panel CSV, audit JSON và kiểm tra chính xác 309 dòng, các mốc chia 216/46/47.
 
-**Hoàn thành khi:** fixture offline chứng minh quy tắc gộp tuần, giới hạn vintage và việc báo lỗi khi dữ liệu công bố muộn.
+**Hoàn thành khi:** fixture offline chứng minh ánh xạ AWHMAN, đúng giới hạn vintage và báo lỗi khi thiếu tháng nguồn.
+
+Lệnh dựng panel từ thư mục gốc project (sau khi đặt `FRED_API_KEY` trong môi trường):
+
+```bash
+set -a; . ./.env; set +a  # Chỉ cần khi khóa được lưu trong .env
+PYTHONPATH=vmd_ardl_ffnn/src ./.venv/bin/python3 -m vmd_ardl_ffnn.macro_fred_panel \
+  --cache-root data/macro_us/raw \
+  --output-root data/macro_us/processed
+```
 
 ### 3. Tích hợp VAR-NN vào shared-mean
 
@@ -101,6 +117,10 @@ Validation hiện chứa cú sốc COVID-19, còn test tương đối ổn đị
 
 ## Nguồn chính thức
 
-- FRED: [UNRATE](https://fred.stlouisfed.org/series/UNRATE), [ICSA](https://fred.stlouisfed.org/series/ICSA), [PAYEMS](https://fred.stlouisfed.org/series/PAYEMS), [CPIAUCSL](https://fred.stlouisfed.org/series/CPIAUCSL), [INDPRO](https://fred.stlouisfed.org/series/INDPRO).
+- FRED: [UNRATE](https://fred.stlouisfed.org/series/UNRATE), [AWHMAN](https://fred.stlouisfed.org/series/AWHMAN), [PAYEMS](https://fred.stlouisfed.org/series/PAYEMS), [CPIAUCSL](https://fred.stlouisfed.org/series/CPIAUCSL), [INDPRO](https://fred.stlouisfed.org/series/INDPRO).
+- BLS: [giờ làm ngành chế tạo là chỉ báo sớm](https://www.bls.gov/opub/mlr/2020/article/pdf/employment-expansion-continued-in-2019-but-growth-slowed-in-several-industries.pdf).
+- ALFRED: [lịch sử vintage ICSA bắt đầu từ 05/2009](https://alfred.stlouisfed.org/series?seid=ICSA).
 - FRED API: [quy tắc thời gian thực](https://fred.stlouisfed.org/docs/api/fred/realtime_period.html), [series observations](https://fred.stlouisfed.org/docs/api/fred/series_observations.html).
 - BLS: [gián đoạn khảo sát CPS tháng 10/2025](https://www.bls.gov/cps/methods/2025-federal-government-shutdown-impact-cps.htm).
+- BLS: [công bố số liệu 09/2025 bị chậm](https://www.bls.gov/news.release/archives/empsit_11202025.htm).
+- FRED: [giới hạn 120 yêu cầu/phút và lỗi 429](https://fred.stlouisfed.org/docs/api/fred/errors.html).

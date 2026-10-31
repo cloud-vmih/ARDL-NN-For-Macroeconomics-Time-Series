@@ -319,6 +319,7 @@ class TensorFlowRuntimeConfig:
     gpu_index: int = 0
     deterministic_ops: bool = True
     memory_growth: bool = True
+    run_eagerly: bool = False
 
     def __post_init__(self) -> None:
         if self.device.lower() not in {"auto", "cpu", "gpu"}:

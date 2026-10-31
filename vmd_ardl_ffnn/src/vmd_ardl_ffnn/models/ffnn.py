@@ -104,6 +104,7 @@ class TensorFlowFFNNRegressor:
                 ),
                 loss="mse",
                 metrics=["mae"],
+                run_eagerly=bool(self.runtime.run_eagerly),
             )
 
             monitor = "val_loss" if self.validation_fraction > 0.0 else "loss"
