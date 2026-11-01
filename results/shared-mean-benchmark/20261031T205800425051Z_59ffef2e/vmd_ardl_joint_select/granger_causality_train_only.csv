@@ -1,0 +1,5 @@
+cause,effect,lag,F_stat,pvalue,error
+manufacturing_hours,unemployment_rate,2,,,grangercausalitytests() got an unexpected keyword argument 'verbose'
+nonfarm_payrolls,unemployment_rate,2,,,grangercausalitytests() got an unexpected keyword argument 'verbose'
+cpi_all_items,unemployment_rate,2,,,grangercausalitytests() got an unexpected keyword argument 'verbose'
+industrial_prod,unemployment_rate,2,,,grangercausalitytests() got an unexpected keyword argument 'verbose'

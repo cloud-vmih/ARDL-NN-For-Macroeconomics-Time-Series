@@ -1,0 +1,3 @@
+model,pipeline,target,split,scale,forecast_protocol,RMSE,MAE,MAPE,R2,Directional_Accuracy
+Naive_LastObservation,Naive_LastObservation,unemployment_rate,validation,level,rolling_one_step,1.6165583409098532,0.5195652173913043,6.073466963983865,0.59948603583408,24.444444444444443
+Naive_LastObservation,Naive_LastObservation,unemployment_rate,test,level,rolling_one_step,0.1501772002980536,0.11914893617021284,3.1026802179772464,0.702957309802051,21.73913043478261

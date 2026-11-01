@@ -1,0 +1,210 @@
+{
+  "run_id": "20261031T205738611074Z_9cc9f549",
+  "pipeline": "shared-mean-benchmark",
+  "dataset": "/home/hoang_hai/projects/ARDL-NN-For-Macroeconomics-Time-Series/data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv",
+  "status": "running",
+  "error": null,
+  "forecast_protocol": "rolling_one_step",
+  "config_hash": "9cc9f549",
+  "config": {
+    "data": {
+      "date_col": "date",
+      "target": "unemployment_rate",
+      "features": [
+        "manufacturing_hours",
+        "nonfarm_payrolls",
+        "cpi_all_items",
+        "industrial_prod"
+      ],
+      "freq": "MS",
+      "log_transform": false,
+      "missing_period_policy": "raise",
+      "missing_value_policy": "raise"
+    },
+    "vmd": {
+      "modes": 3,
+      "backend": "sktime",
+      "alpha": 2000.0,
+      "tau": 0.0,
+      "dc": false,
+      "init": 1,
+      "tolerance": 1e-07,
+      "max_iterations": 500
+    },
+    "ardl": {
+      "max_target_lag": 12,
+      "max_exog_lag": 6,
+      "top_n": 3,
+      "ic": "aic",
+      "trend": "c",
+      "causal": true,
+      "target_lag_strategy": "ardl_select_order",
+      "fixed_target_lags": [
+        1,
+        12
+      ],
+      "target_lag_top_n": 2,
+      "force_target_lag_1": true,
+      "target_lag_preset": "acf_pacf",
+      "target_lag_candidates": [],
+      "target_lag_acf_pacf_top_n": 3,
+      "target_lag_acf_pacf_max_lags_per_set": 3,
+      "lag_spec_strategy": "staged",
+      "max_lag_specs": 16,
+      "selection_failure_policy": "raise",
+      "exog_lag_strategy": "ardl_screen",
+      "fixed_exog_lags": [
+        1
+      ]
+    },
+    "ffnn": {
+      "hidden_layer_candidates": [
+        1,
+        2
+      ],
+      "hidden_width_multipliers": [
+        1.0,
+        0.5
+      ],
+      "hidden_units_candidates": [],
+      "alpha_grid": [
+        0.0001,
+        0.001,
+        0.01
+      ],
+      "seed_grid": [
+        7
+      ],
+      "activation": "tanh",
+      "activation_grid": [
+        "tanh"
+      ],
+      "learning_rate_init": 0.001,
+      "learning_rate_grid": [
+        0.001
+      ],
+      "max_iter": 150,
+      "min_train": 30,
+      "min_val": 8,
+      "min_test": 8,
+      "search_strategy": "staged_halving",
+      "fast_hidden_units": null,
+      "fast_hidden_layers": 1,
+      "fast_hidden_width_multiplier": 1.0,
+      "fast_alpha": 0.001,
+      "fast_max_iter": 75,
+      "top_k_lag_specs": 4,
+      "top_component_candidates": 3,
+      "lag_screen_folds": 3,
+      "lag_screen_validation_size": 12,
+      "lag_screen_learning_rate_grid": [],
+      "lag_screen_selection_rule": "one_standard_error",
+      "final_selection_scale": "level",
+      "scaler": "standard",
+      "batch_size": 16,
+      "validation_fraction": 0.2,
+      "early_stopping_patience": 15,
+      "reduce_lr_patience": 6,
+      "reduce_lr_factor": 0.5,
+      "min_learning_rate": 1e-05,
+      "dropout_rate": 0.1
+    },
+    "hard_ffnn": {
+      "policy_version": "frequency_lag_balanced_v1",
+      "low_frequency_max": 0.125,
+      "mid_frequency_max": 0.25,
+      "high_entropy_min": 0.7,
+      "irregular_roughness_min": 1.5,
+      "irregular_entropy_min": 0.65,
+      "heavy_input_ratio": 0.2,
+      "heavy_width_scale": 0.75,
+      "min_width": 4,
+      "max_width": 32,
+      "alpha_levels": [
+        0.0001,
+        0.001,
+        0.01,
+        0.1
+      ],
+      "top_component_candidates": 3
+    },
+    "diagnostics": {
+      "lags": 12,
+      "granger_maxlag": 2,
+      "alpha": 0.05
+    },
+    "stationarity": {
+      "enabled": true,
+      "alpha": 0.05,
+      "min_obs": 12
+    },
+    "tensorflow": {
+      "device": "cpu",
+      "gpu_index": 0,
+      "deterministic_ops": true,
+      "memory_growth": true,
+      "run_eagerly": true
+    },
+    "train_ratio": 0.6990291262135923,
+    "val_ratio": 0.1488673139158576,
+    "output_dir": "/home/hoang_hai/projects/ARDL-NN-For-Macroeconomics-Time-Series/results/shared-mean-benchmark/20261031T205738611074Z_9cc9f549",
+    "forecast_protocol": "rolling_one_step"
+  },
+  "metadata": {
+    "paper_seeds": [
+      7
+    ],
+    "include_varnn": null,
+    "block_subset_search_strategy": null,
+    "selection_seed_aggregation": "shared_mean_validation_across_reporting_seeds",
+    "ablation_schema_version": null,
+    "benchmark_model_set": [
+      "ardl_ffnn_no_vmd",
+      "vmd_ardl_block_subset_proposed",
+      "vmd_ardl_sequential_screen",
+      "vmd_ardl_joint_select",
+      "varnn",
+      "lstm",
+      "naive_last_observation"
+    ],
+    "lstm_config": {
+      "lookback_grid": [
+        6,
+        12
+      ],
+      "hidden_units_grid": [
+        16,
+        32
+      ],
+      "learning_rate_grid": [
+        0.001
+      ],
+      "epochs": 60,
+      "batch_size": 16,
+      "patience": 6
+    },
+    "proposed_block_subset_search_strategy": "two_stage",
+    "proposed_fast_screen_validation_scope": "train_inner_rolling",
+    "dataset_profile": "us-unemployment",
+    "panel_sha256": "c1d65505f7c7f10b9a286e191b7b70711c4c7e6add0f78b88e411ac6929a80e9",
+    "source_audit_sha256": "0f95f258a5595807157ddac3f60b764b11b3e168348799e55dadfaba297b9a25",
+    "source_audit_path": "/home/hoang_hai/projects/ARDL-NN-For-Macroeconomics-Time-Series/data/macro_us/processed/us_unemployment_awhman_2000_2025_09.audit.json",
+    "forecast_origin_rule": "last calendar day of t, 23:59 America/New_York; inputs through t-1",
+    "run_source_audit_path": "/home/hoang_hai/projects/ARDL-NN-For-Macroeconomics-Time-Series/results/shared-mean-benchmark/20261031T205738611074Z_9cc9f549/source_audit.json"
+  },
+  "runtime": {
+    "python": "3.11.18",
+    "platform": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+    "dependencies": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "statsmodels": "0.15.0",
+      "scikit-learn": "1.9.1",
+      "matplotlib": "3.11.2",
+      "tensorflow": "2.21.0",
+      "keras": "3.15.1",
+      "sktime": "1.2.0"
+    }
+  },
+  "written_at_utc": "2026-10-31T20:57:38.627819+00:00"
+}

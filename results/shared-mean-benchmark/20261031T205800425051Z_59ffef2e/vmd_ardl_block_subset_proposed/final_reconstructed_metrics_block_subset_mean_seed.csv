@@ -1,0 +1,5 @@
+dataset,model,target,uses_vmd,vmd_setting,vmd_modes,activation,split,scale,forecast_protocol,RMSE,MAE,MAPE,R2,Directional_Accuracy,seed
+us_unemployment_awhman_2000_2025_09,VMD_ARDL_BlockSubset_MeanSeed_FFNN,unemployment_rate,True,cached_vmd,3,tanh,test,reconstructed_transformed,rolling_one_step,0.2473579567907415,0.1730369749035627,111.666694749304,-1.7151422852954572,65.21739130434783,7
+us_unemployment_awhman_2000_2025_09,VMD_ARDL_BlockSubset_MeanSeed_FFNN,unemployment_rate,True,cached_vmd,3,tanh,test,level,rolling_one_step,0.2473579567907415,0.1730369749035627,4.534015755830997,0.1941343729906515,45.65217391304348,7
+us_unemployment_awhman_2000_2025_09,VMD_ARDL_BlockSubset_MeanSeed_FFNN,unemployment_rate,True,cached_vmd,3,tanh,validation,reconstructed_transformed,rolling_one_step,1.592196403926517,0.5531897763261046,113.78211066368577,0.029869525602271407,68.88888888888889,7
+us_unemployment_awhman_2000_2025_09,VMD_ARDL_BlockSubset_MeanSeed_FFNN,unemployment_rate,True,cached_vmd,3,tanh,validation,level,rolling_one_step,1.592196403926517,0.5531897763261046,6.630105015888208,0.611466764608646,42.22222222222222,7

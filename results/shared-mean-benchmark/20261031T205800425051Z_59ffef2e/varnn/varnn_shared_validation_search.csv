@@ -1,0 +1,2 @@
+hidden_units,activation,learning_rate,Val RMSE,Val Level RMSE,Val Level MAE,Val Level MAPE,selected,seed,selection_scope,selected_shared_mean_seed
+32,tanh,0.001,1.6120422250030884,1.6120422250030884,0.4994652769776345,5.790640970509489,True,7,validation_only,True

@@ -1,0 +1,3 @@
+model,pipeline,target,split,scale,seed,RMSE,MAE,MAPE,R2,Directional_Accuracy
+GRU_SharedMeanSeed,gru,unemployment_rate,validation,level,7,1.7259149009703176,0.8430308544643055,13.159362046621457,0.5434654460320847,28.888888888888886
+GRU_SharedMeanSeed,gru,unemployment_rate,test,level,7,2.044282438503571,2.01779307908024,52.53172949411409,-54.04180378379681,39.130434782608695

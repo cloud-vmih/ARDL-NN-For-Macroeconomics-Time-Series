@@ -1,0 +1,5 @@
+split,selected_lag,lag_criterion,X_shape,Y_shape
+all,2,aic,"(306, 2, 5)","(306, 5)"
+train,2,aic,"(213, 2, 5)","(213, 5)"
+validation,2,aic,"(46, 2, 5)","(46, 5)"
+test,2,aic,"(47, 2, 5)","(47, 5)"

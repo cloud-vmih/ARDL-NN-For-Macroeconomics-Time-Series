@@ -1,0 +1,53 @@
+feature,target_lag,target_lags,target_lag_strategy,selected_ic,selected_for_target_lags,target_lag_selection_fallback,error,exog_lag,AIC,BIC,selected_score,nobs,hold_back,rank_within_feature,selected_for_ffnn_grid,combo_rank,combo_score_sum,combo_source,lag_spec_strategy,exog_lags,lag_spec,component
+__target_lag__,1.0,"(1,)",ardl_select_order,aic,True,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,2.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,3.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,4.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,5.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,6.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,7.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,8.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,9.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,10.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,11.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+__target_lag__,12.0,"(1,)",ardl_select_order,aic,False,False,,,,,,,,,,,,,,,,raw_no_vmd
+manufacturing_hours,,"(1,)",,aic,,,,1.0,-128.4089823296663,-115.03964532180704,-128.4089823296663,209.0,6.0,,False,,,,,,,raw_no_vmd
+manufacturing_hours,,"(1,)",,aic,,,,2.0,-132.4551133696747,-115.74344210985065,-132.4551133696747,209.0,6.0,,False,,,,,,,raw_no_vmd
+manufacturing_hours,,"(1,)",,aic,,,,3.0,-134.16214582755336,-114.1081403157645,-134.16214582755336,209.0,6.0,1.0,True,,,,,,,raw_no_vmd
+manufacturing_hours,,"(1,)",,aic,,,,4.0,-132.64065231368747,-109.2443125499338,-132.64065231368747,209.0,6.0,3.0,True,,,,,,,raw_no_vmd
+manufacturing_hours,,"(1,)",,aic,,,,5.0,-133.00286792397745,-106.26419390825896,-133.00286792397745,209.0,6.0,2.0,True,,,,,,,raw_no_vmd
+manufacturing_hours,,"(1,)",,aic,,,,6.0,-131.03380029548947,-100.95279202780617,-131.03380029548947,209.0,6.0,,False,,,,,,,raw_no_vmd
+nonfarm_payrolls,,"(1,)",,aic,,,,1.0,-156.6313502695573,-143.26201326169803,-156.6313502695573,209.0,6.0,,False,,,,,,,raw_no_vmd
+nonfarm_payrolls,,"(1,)",,aic,,,,2.0,-166.61215887102907,-149.90048761120502,-166.61215887102907,209.0,6.0,1.0,True,,,,,,,raw_no_vmd
+nonfarm_payrolls,,"(1,)",,aic,,,,3.0,-165.70190538239092,-145.64789987060206,-165.70190538239092,209.0,6.0,2.0,True,,,,,,,raw_no_vmd
+nonfarm_payrolls,,"(1,)",,aic,,,,4.0,-163.7760834738901,-140.37974371013644,-163.7760834738901,209.0,6.0,3.0,True,,,,,,,raw_no_vmd
+nonfarm_payrolls,,"(1,)",,aic,,,,5.0,-162.27465733245498,-135.5359833167365,-162.27465733245498,209.0,6.0,,False,,,,,,,raw_no_vmd
+nonfarm_payrolls,,"(1,)",,aic,,,,6.0,-160.7917587463552,-130.7107504786719,-160.7917587463552,209.0,6.0,,False,,,,,,,raw_no_vmd
+cpi_all_items,,"(1,)",,aic,,,,1.0,-127.61024919550755,-114.2409121876483,-127.61024919550755,209.0,6.0,1.0,True,,,,,,,raw_no_vmd
+cpi_all_items,,"(1,)",,aic,,,,2.0,-125.66769326653395,-108.95602200670989,-125.66769326653395,209.0,6.0,,False,,,,,,,raw_no_vmd
+cpi_all_items,,"(1,)",,aic,,,,3.0,-126.36357447165969,-106.30956895987083,-126.36357447165969,209.0,6.0,3.0,True,,,,,,,raw_no_vmd
+cpi_all_items,,"(1,)",,aic,,,,4.0,-124.55012705437156,-101.15378729061788,-124.55012705437156,209.0,6.0,,False,,,,,,,raw_no_vmd
+cpi_all_items,,"(1,)",,aic,,,,5.0,-127.60549163293177,-100.86681761721329,-127.60549163293177,209.0,6.0,2.0,True,,,,,,,raw_no_vmd
+cpi_all_items,,"(1,)",,aic,,,,6.0,-125.60561571307605,-95.52460744539275,-125.60561571307605,209.0,6.0,,False,,,,,,,raw_no_vmd
+industrial_prod,,"(1,)",,aic,,,,1.0,-126.76549450596153,-113.39615749810228,-126.76549450596153,209.0,6.0,,False,,,,,,,raw_no_vmd
+industrial_prod,,"(1,)",,aic,,,,2.0,-125.01756493451711,-108.30589367469305,-125.01756493451711,209.0,6.0,,False,,,,,,,raw_no_vmd
+industrial_prod,,"(1,)",,aic,,,,3.0,-127.57453300307876,-107.5205274912899,-127.57453300307876,209.0,6.0,2.0,True,,,,,,,raw_no_vmd
+industrial_prod,,"(1,)",,aic,,,,4.0,-126.24142565437802,-102.84508589062435,-126.24142565437802,209.0,6.0,,False,,,,,,,raw_no_vmd
+industrial_prod,,"(1,)",,aic,,,,5.0,-127.25761059524766,-100.51893657952917,-127.25761059524766,209.0,6.0,3.0,True,,,,,,,raw_no_vmd
+industrial_prod,,"(1,)",,aic,,,,6.0,-129.15087074776986,-99.06986248008656,-129.15087074776986,209.0,6.0,1.0,True,,,,,,,raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,1.0,-557.5354246418599,baseline_rank1,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1,), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2], cpi_all_items:[1], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,2.0,-557.5306670792841,one_feature_perturbation,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1, 2, 3, 4, 5), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2], cpi_all_items:[1, 2, 3, 4, 5], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,3.0,-556.6251711532217,one_feature_perturbation,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2, 3), 'cpi_all_items': (1,), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2, 3], cpi_all_items:[1], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,4.0,-556.6204135906459,best_combo_score,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2, 3), 'cpi_all_items': (1, 2, 3, 4, 5), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2, 3], cpi_all_items:[1, 2, 3, 4, 5], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,5.0,-556.376146738284,one_feature_perturbation,staged,"{'manufacturing_hours': (1, 2, 3, 4, 5), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1,), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3, 4, 5], nonfarm_payrolls:[1, 2], cpi_all_items:[1], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,6.0,-556.3713891757081,best_combo_score,staged,"{'manufacturing_hours': (1, 2, 3, 4, 5), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1, 2, 3, 4, 5), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3, 4, 5], nonfarm_payrolls:[1, 2], cpi_all_items:[1, 2, 3, 4, 5], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,7.0,-556.2887499180121,one_feature_perturbation,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1, 2, 3), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2], cpi_all_items:[1, 2, 3], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,8.0,-556.0139311279939,one_feature_perturbation,staged,"{'manufacturing_hours': (1, 2, 3, 4), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1,), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3, 4], nonfarm_payrolls:[1, 2], cpi_all_items:[1], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,9.0,-556.0091735654181,best_combo_score,staged,"{'manufacturing_hours': (1, 2, 3, 4), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1, 2, 3, 4, 5), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3, 4], nonfarm_payrolls:[1, 2], cpi_all_items:[1, 2, 3, 4, 5], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,10.0,-555.9590868971687,one_feature_perturbation,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1,), 'industrial_prod': (1, 2, 3)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2], cpi_all_items:[1], industrial_prod:[1, 2, 3]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,11.0,-555.954329334593,best_combo_score,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1, 2, 3, 4, 5), 'industrial_prod': (1, 2, 3)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2], cpi_all_items:[1, 2, 3, 4, 5], industrial_prod:[1, 2, 3]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,12.0,-555.6421644893377,one_feature_perturbation,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1,), 'industrial_prod': (1, 2, 3, 4, 5)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2], cpi_all_items:[1], industrial_prod:[1, 2, 3, 4, 5]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,13.0,-555.6374069267619,best_combo_score,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1, 2, 3, 4, 5), 'industrial_prod': (1, 2, 3, 4, 5)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2], cpi_all_items:[1, 2, 3, 4, 5], industrial_prod:[1, 2, 3, 4, 5]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,14.0,-555.4658932496458,best_combo_score,staged,"{'manufacturing_hours': (1, 2, 3, 4, 5), 'nonfarm_payrolls': (1, 2, 3), 'cpi_all_items': (1,), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3, 4, 5], nonfarm_payrolls:[1, 2, 3], cpi_all_items:[1], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,15.0,-555.4611356870699,best_combo_score,staged,"{'manufacturing_hours': (1, 2, 3, 4, 5), 'nonfarm_payrolls': (1, 2, 3), 'cpi_all_items': (1, 2, 3, 4, 5), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3, 4, 5], nonfarm_payrolls:[1, 2, 3], cpi_all_items:[1, 2, 3, 4, 5], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd
+__ffnn_combo__,,"(1,)",,aic,,,,,,,,,,,,16.0,-554.6993492447209,one_feature_perturbation,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2, 3, 4), 'cpi_all_items': (1,), 'industrial_prod': (1, 2, 3, 4, 5, 6)}","target:[1] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2, 3, 4], cpi_all_items:[1], industrial_prod:[1, 2, 3, 4, 5, 6]",raw_no_vmd

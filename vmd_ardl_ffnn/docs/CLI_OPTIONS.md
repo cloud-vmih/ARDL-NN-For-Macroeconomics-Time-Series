@@ -36,10 +36,67 @@
 | `--block-subset-search-strategy full-grid/two-stage` | Chọn chiến lược cho comparator trong benchmark legacy. |
 | `--skip-varnn` | Chỉ dùng với `benchmark` hoặc `block-proposed-benchmark`; shared-mean luôn chạy VAR-NN. |
 
-`shared-mean-benchmark` cũng chạy LSTM mặc định. Grid LSTM hiện được khai báo
-trong `LSTMConfig` (`models/lstm.py`); CLI chưa có option riêng để đổi grid.
+`shared-mean-benchmark` cũng chạy LSTM, GRU, MLP-ARX, XGBoost, Ridge-ARX và SARIMAX mặc định. Grid recurrent
+được khai báo trong `LSTMConfig`/`GRUConfig`; grid SARIMAX nằm trong
+`SARIMAXConfig`. CLI chưa có option riêng để đổi các grid.
 Nếu chạy lại sau khi cập nhật model set, dùng `--run-id` mới để giữ nguyên
 artifact của lần chạy trước.
+
+Chạy riêng Ridge-ARX:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline ridge-arx \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --run-id us-unemployment-ridge-arx-01
+```
+
+Chạy riêng MLP-ARX đủ 5 seed:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline mlp-arx \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --paper-seeds 7 42 123 2024 2025 \
+  --run-id us-unemployment-mlp-arx-5seeds
+```
+
+Chạy riêng XGBoost đủ 5 seed:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline xgboost \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --paper-seeds 7 42 123 2024 2025 \
+  --run-id us-unemployment-xgboost-5seeds
+```
+
+Chạy riêng GRU đủ 5 seed:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline gru \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --tensorflow-device gpu \
+  --tensorflow-run-eagerly \
+  --paper-seeds 7 42 123 2024 2025 \
+  --run-id us-unemployment-gru-5seeds
+```
+
+Chạy riêng SARIMAX trên đúng panel/audit thất nghiệp mà không chạy lại các neural
+model:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline sarimax \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --run-id us-unemployment-sarimax-01
+```
 
 Các pipeline legacy dùng cấu hình `TIME_PERIOD`/`Export_US` và cần CSV khác đã
 kiểm định. Giao diện CLI cũ với `--features`, `--target`, `--date-col` vẫn được

@@ -22,6 +22,11 @@ from .lag_selection import ARDLOrderSelector
 from .metrics import evaluate_forecast
 from .models.ffnn import TensorFlowFFNNRegressor
 from .models.lstm import LSTMConfig
+from .models.gru import GRUConfig
+from .models.xgboost import XGBoostConfig
+from .models.sarimax import SARIMAXConfig
+from .models.ridge_arx import RidgeARXConfig
+from .models.mlp_arx import MLPARXConfig
 from .stationarity import apply_stationarity_transform
 from .vmd_cache import ContentAddressedVMDCache, VMDCacheRef
 from .block_subset_workflow import BlockSubsetWorkflowMixin
@@ -2271,7 +2276,17 @@ class VMDARDLFFNNExperiment(BlockSubsetWorkflowMixin, HardFFNNWorkflowMixin, Sha
         seeds: tuple[int, ...] | None = None,
         varnn_config: VARNNConfig | None = None,
         lstm_config: LSTMConfig | None = None,
+        gru_config: GRUConfig | None = None,
+        xgboost_config: XGBoostConfig | None = None,
+        ridge_arx_config: RidgeARXConfig | None = None,
+        mlp_arx_config: MLPARXConfig | None = None,
+        sarimax_config: SARIMAXConfig | None = None,
         include_lstm: bool = True,
+        include_gru: bool = True,
+        include_xgboost: bool = True,
+        include_ridge_arx: bool = True,
+        include_mlp_arx: bool = True,
+        include_sarimax: bool = True,
     ) -> dict[str, Any]:
         """Run the shared-mean workflows, VAR-NN, LSTM and naïve reference."""
         from .shared_mean_benchmark_experiments import (
@@ -2289,7 +2304,17 @@ class VMDARDLFFNNExperiment(BlockSubsetWorkflowMixin, HardFFNNWorkflowMixin, Sha
             seeds=reporting_seeds,
             varnn_config=varnn_config,
             lstm_config=lstm_config,
+            gru_config=gru_config,
+            xgboost_config=xgboost_config,
+            ridge_arx_config=ridge_arx_config,
+            mlp_arx_config=mlp_arx_config,
+            sarimax_config=sarimax_config,
             include_lstm=include_lstm,
+            include_gru=include_gru,
+            include_xgboost=include_xgboost,
+            include_ridge_arx=include_ridge_arx,
+            include_mlp_arx=include_mlp_arx,
+            include_sarimax=include_sarimax,
         )
 
 

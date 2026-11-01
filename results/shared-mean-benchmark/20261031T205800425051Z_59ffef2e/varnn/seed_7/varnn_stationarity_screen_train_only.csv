@@ -1,0 +1,6 @@
+Variable,ADF level p,KPSS level p,Level decision,ADF diff1 p,KPSS diff1 p,Diff1 decision,Transform used,Decision basis,Likely I(2)?
+unemployment_rate,0.23165639777523994,0.04380069036997598,Non-stationary,0.009660017924981069,0.06681061544184771,Stationary,diff1,train_only,No
+manufacturing_hours,0.38071549408997696,0.01,Non-stationary,0.0,0.1,Stationary,diff1,train_only,No
+nonfarm_payrolls,0.8674078295832427,0.01,Non-stationary,0.09120447975587626,0.08777103945637794,Mixed/unclear,diff1,train_only,Yes
+cpi_all_items,0.8219832120394297,0.01,Non-stationary,8.18261339845634e-17,0.1,Stationary,diff1,train_only,No
+industrial_prod,0.2806874383176437,0.01,Non-stationary,1.0952495107390342e-25,0.1,Stationary,diff1,train_only,No

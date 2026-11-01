@@ -1,0 +1,16 @@
+pipeline,split,n_dates,common_date_count,union_date_count,same_dates_for_all_models,start,end
+ardl_ffnn_no_vmd,test,47,47,47,True,2021-11-01,2025-09-01
+lstm,test,47,47,47,True,2021-11-01,2025-09-01
+naive_last_observation,test,47,47,47,True,2021-11-01,2025-09-01
+varnn,test,47,47,47,True,2021-11-01,2025-09-01
+vmd_ardl_block_subset_proposed,test,47,47,47,True,2021-11-01,2025-09-01
+vmd_ardl_joint_select,test,47,47,47,True,2021-11-01,2025-09-01
+vmd_ardl_sequential_screen,test,47,47,47,True,2021-11-01,2025-09-01
+ardl_ffnn_no_vmd,validation,46,46,46,True,2018-01-01,2021-10-01
+lstm,validation,46,46,46,True,2018-01-01,2021-10-01
+naive_last_observation,validation,46,46,46,True,2018-01-01,2021-10-01
+varnn,validation,46,46,46,True,2018-01-01,2021-10-01
+vmd_ardl_block_subset_proposed,validation,46,46,46,True,2018-01-01,2021-10-01
+vmd_ardl_joint_select,validation,46,46,46,True,2018-01-01,2021-10-01
+vmd_ardl_sequential_screen,validation,46,46,46,True,2018-01-01,2021-10-01
+varnn,train,213,213,213,True,2000-04-01,2017-12-01

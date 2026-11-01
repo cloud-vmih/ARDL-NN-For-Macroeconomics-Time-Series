@@ -1,0 +1,149 @@
+feature,target_lag,target_lags,target_lag_strategy,selected_ic,selected_for_target_lags,target_lag_selection_fallback,error,exog_lag,AIC,BIC,selected_score,nobs,rank_within_feature,selected_for_ffnn_grid,combo_rank,combo_score_sum,combo_source,lag_spec_strategy,exog_lags,lag_spec,component
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD1
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD1
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD1
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD1
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,1.0,True,,,,,,,VMD1
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD1
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD1
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD1
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD1
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD1
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,1.0,True,,,,,,,VMD1
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD1
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD1
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD1
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD1
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD1
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,1.0,True,,,,,,,VMD1
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,1.0,True,,,,,,,VMD1
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,1.0,True,,,,,,,VMD1
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,1.0,True,,,,,,,VMD1
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD1
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD1
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,,False,,,,,,,VMD1
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD1
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD1
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD1
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,,,,,,,,1.0,0.0,ardl_select_order_joint,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2, 3), 'cpi_all_items': (1, 2, 3, 4, 5, 6), 'industrial_prod': (1, 2)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2, 3], cpi_all_items:[1, 2, 3, 4, 5, 6], industrial_prod:[1, 2]",VMD1
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD2
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD2
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,,False,,,,,,,VMD2
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,,False,,,,,,,VMD2
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,,False,,,,,,,VMD2
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD2
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD2
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD2
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD2
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD2
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,1.0,True,,,,,,,VMD2
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD2
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD2
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD2
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD2
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD2
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,,False,,,,,,,VMD2
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD2
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD2
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD2
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD2
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD2
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,,False,,,,,,,VMD2
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD2
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD2
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD2
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,,,,,,,,1.0,0.0,ardl_select_order_joint,staged,"{'manufacturing_hours': (), 'nonfarm_payrolls': (1, 2, 3), 'cpi_all_items': (1, 2), 'industrial_prod': (1, 2)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] | manufacturing_hours:[], nonfarm_payrolls:[1, 2, 3], cpi_all_items:[1, 2], industrial_prod:[1, 2]",VMD2
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,VMD3
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,VMD3
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD3
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD3
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,1.0,True,,,,,,,VMD3
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD3
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD3
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD3
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD3
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD3
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,1.0,True,,,,,,,VMD3
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,1.0,True,,,,,,,VMD3
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,1.0,True,,,,,,,VMD3
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD3
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,,False,,,,,,,VMD3
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,,False,,,,,,,VMD3
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,,False,,,,,,,VMD3
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD3
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD3
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD3
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,VMD3
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,VMD3
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,3.0,,,,215.0,1.0,True,,,,,,,VMD3
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,4.0,,,,215.0,,False,,,,,,,VMD3
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,5.0,,,,215.0,,False,,,,,,,VMD3
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,6.0,,,,215.0,,False,,,,,,,VMD3
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)",,aic,,,,,,,,,,,1.0,0.0,ardl_select_order_joint,staged,"{'manufacturing_hours': (1, 2, 3), 'nonfarm_payrolls': (1, 2, 3, 4, 5), 'cpi_all_items': (), 'industrial_prod': (1, 2, 3)}","target:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] | manufacturing_hours:[1, 2, 3], nonfarm_payrolls:[1, 2, 3, 4, 5], cpi_all_items:[], industrial_prod:[1, 2, 3]",VMD3
+__target_lag__,1.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,2.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,3.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,4.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,5.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,6.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,7.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,True,False,,,,,,,,,,,,,,,RES
+__target_lag__,8.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,RES
+__target_lag__,9.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,RES
+__target_lag__,10.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,RES
+__target_lag__,11.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,RES
+__target_lag__,12.0,"(1, 2, 3, 4, 5, 6, 7)",ardl_select_order_joint,aic,False,False,,,,,,,,,,,,,,,RES
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,1.0,,,,215.0,,False,,,,,,,RES
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,2.0,,,,215.0,,False,,,,,,,RES
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,3.0,,,,215.0,,False,,,,,,,RES
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,4.0,,,,215.0,,False,,,,,,,RES
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,5.0,,,,215.0,,False,,,,,,,RES
+manufacturing_hours,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,6.0,,,,215.0,,False,,,,,,,RES
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,RES
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,RES
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,3.0,,,,215.0,,False,,,,,,,RES
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,4.0,,,,215.0,,False,,,,,,,RES
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,5.0,,,,215.0,,False,,,,,,,RES
+nonfarm_payrolls,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,6.0,,,,215.0,,False,,,,,,,RES
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,1.0,,,,215.0,1.0,True,,,,,,,RES
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,2.0,,,,215.0,1.0,True,,,,,,,RES
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,3.0,,,,215.0,1.0,True,,,,,,,RES
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,4.0,,,,215.0,,False,,,,,,,RES
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,5.0,,,,215.0,,False,,,,,,,RES
+cpi_all_items,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,6.0,,,,215.0,,False,,,,,,,RES
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,1.0,,,,215.0,,False,,,,,,,RES
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,2.0,,,,215.0,,False,,,,,,,RES
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,3.0,,,,215.0,,False,,,,,,,RES
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,4.0,,,,215.0,,False,,,,,,,RES
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,5.0,,,,215.0,,False,,,,,,,RES
+industrial_prod,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,6.0,,,,215.0,,False,,,,,,,RES
+__ffnn_combo__,,"(1, 2, 3, 4, 5, 6, 7)",,aic,,,,,,,,,,,1.0,0.0,ardl_select_order_joint,staged,"{'manufacturing_hours': (), 'nonfarm_payrolls': (1, 2), 'cpi_all_items': (1, 2, 3), 'industrial_prod': ()}","target:[1, 2, 3, 4, 5, 6, 7] | manufacturing_hours:[], nonfarm_payrolls:[1, 2], cpi_all_items:[1, 2, 3], industrial_prod:[]",RES

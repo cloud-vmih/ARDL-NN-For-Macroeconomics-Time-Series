@@ -1,0 +1,3 @@
+model,pipeline,target,split,scale,seed,RMSE,MAE,MAPE,R2,Directional_Accuracy
+XGBoost_SharedMeanSeed,xgboost,unemployment_rate,validation,level,2024,1.7686604471687803,0.7218018967172373,10.493057502212713,0.5205715251876095,40.0
+XGBoost_SharedMeanSeed,xgboost,unemployment_rate,test,level,2024,6.354468722346146,5.546269777987866,143.30609629959875,-530.8257422483634,36.95652173913043

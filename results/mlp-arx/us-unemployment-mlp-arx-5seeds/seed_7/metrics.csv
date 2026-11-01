@@ -1,0 +1,3 @@
+model,pipeline,target,split,scale,seed,RMSE,MAE,MAPE,R2,Directional_Accuracy
+MLP_ARX_SharedMeanSeed,mlp_arx,unemployment_rate,validation,level,7,3.1000618346503,2.2708701764266235,39.741278242778534,-0.4729079629849322,26.666666666666668
+MLP_ARX_SharedMeanSeed,mlp_arx,unemployment_rate,test,level,7,4.006423825057982,3.9257111602548456,101.73030402555618,-210.40956947279298,39.130434782608695

@@ -277,6 +277,9 @@ def _run_project_workflows(
 ) -> dict[str, Any]:
     shared = run_shared_mean_benchmark_experiments(
         prepared_csv, config, seeds=seeds, include_lstm=False,
+        include_gru=False, include_xgboost=False, include_ridge_arx=False,
+        include_mlp_arx=False,
+        include_sarimax=False,
     )
     univariate_pipeline = "vmd_ardl_univariate_shared_mean"
     univariate_model = "VMD_ARDL_Univariate_SharedMeanSeed_FFNN"

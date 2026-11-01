@@ -8,6 +8,16 @@ from pathlib import Path
 from .config import ExperimentConfig
 from .experiment import VMDARDLFFNNExperiment
 from .models.varnn import VARNNConfig, run_varnn_pipeline
+from .models.sarimax import SARIMAXConfig
+from .models.gru import GRUConfig
+from .gru_shared_mean import run_gru_shared_mean_seed
+from .models.xgboost import XGBoostConfig
+from .xgboost_shared_mean import run_xgboost_shared_mean_seed
+from .models.ridge_arx import RidgeARXConfig
+from .ridge_arx_shared_mean import run_ridge_arx_validation_selected
+from .models.mlp_arx import MLPARXConfig
+from .mlp_arx_shared_mean import run_mlp_arx_shared_mean_seed
+from .sarimax_shared_mean import run_sarimax_validation_selected
 
 def run_pipeline(
     pipeline: str,
@@ -28,6 +38,78 @@ def run_pipeline(
         return experiment.run_comparison(csv_path), "comparison_metrics"
     if pipeline == "varnn":
         return run_varnn_pipeline(csv_path, config, varnn_config), "metrics"
+    if pipeline == "sarimax":
+        result, metrics, forecasts, selection, fit_count = (
+            run_sarimax_validation_selected(
+                csv_path,
+                config,
+                SARIMAXConfig(),
+                output_dir=Path(config.output_dir),
+            )
+        )
+        return {
+            "selected_model": result,
+            "metrics": metrics,
+            "forecasts": forecasts,
+            "selection": selection,
+            "fit_count": fit_count,
+        }, "metrics"
+    if pipeline == "gru":
+        results, metrics, forecasts, selection, fit_count = run_gru_shared_mean_seed(
+            csv_path,
+            config,
+            GRUConfig(),
+            seeds=paper_seeds,
+            output_dir=Path(config.output_dir),
+        )
+        return {
+            "seed_results": results,
+            "metrics": metrics,
+            "forecasts": forecasts,
+            "selection": selection,
+            "fit_count": fit_count,
+        }, "metrics"
+    if pipeline == "xgboost":
+        results, metrics, forecasts, selection, fit_count = (
+            run_xgboost_shared_mean_seed(
+                csv_path,
+                config,
+                XGBoostConfig(),
+                seeds=paper_seeds,
+                output_dir=Path(config.output_dir),
+            )
+        )
+        return {
+            "seed_results": results,
+            "metrics": metrics,
+            "forecasts": forecasts,
+            "selection": selection,
+            "fit_count": fit_count,
+        }, "metrics"
+    if pipeline == "ridge-arx":
+        result, metrics, forecasts, selection, fit_count = (
+            run_ridge_arx_validation_selected(
+                csv_path,
+                config,
+                RidgeARXConfig(),
+                output_dir=Path(config.output_dir),
+            )
+        )
+        return {
+            "selected_model": result,
+            "metrics": metrics,
+            "forecasts": forecasts,
+            "selection": selection,
+            "fit_count": fit_count,
+        }, "metrics"
+    if pipeline == "mlp-arx":
+        results, metrics, forecasts, selection, fit_count = run_mlp_arx_shared_mean_seed(
+            csv_path, config, MLPARXConfig(), seeds=paper_seeds,
+            output_dir=Path(config.output_dir),
+        )
+        return {"seed_results": results, "metrics": metrics,
+                "forecasts": forecasts, "selection": selection,
+                "fit_count": fit_count}, "metrics"
     if pipeline == "model-comparison":
         return experiment.run_model_comparison(csv_path, varnn_config), "comparison_metrics"
     if pipeline == "benchmark":

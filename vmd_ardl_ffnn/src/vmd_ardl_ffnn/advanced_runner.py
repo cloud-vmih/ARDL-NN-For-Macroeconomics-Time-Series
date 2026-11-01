@@ -33,6 +33,13 @@ from vmd_ardl_ffnn.macro_benchmark import (
 )
 from vmd_ardl_ffnn.models.tensorflow_runtime import bootstrap_tensorflow
 from vmd_ardl_ffnn.models.lstm import LSTMConfig
+from vmd_ardl_ffnn.models.gru import GRUConfig
+from vmd_ardl_ffnn.models.xgboost import XGBoostConfig
+from vmd_ardl_ffnn.models.ridge_arx import RidgeARXConfig
+from vmd_ardl_ffnn.models.mlp_arx import MLPARXConfig
+from vmd_ardl_ffnn.models.sarimax import SARIMAXConfig
+from vmd_ardl_ffnn.sarimax_shared_mean import SARIMAX_PIPELINE
+from vmd_ardl_ffnn.ridge_arx_shared_mean import RIDGE_ARX_PIPELINE
 from vmd_ardl_ffnn.shared_mean_benchmark_experiments import (
     NAIVE_PIPELINE,
     SHARED_MEAN_BENCHMARK_PIPELINES,
@@ -295,7 +302,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     profile_metadata: dict[str, object] = {}
-    if args.pipeline == "shared-mean-benchmark" and args.dataset_profile == "us-unemployment":
+    if (
+        args.pipeline in {
+            "shared-mean-benchmark", "gru", "xgboost", "ridge-arx", "mlp-arx", "sarimax"
+        }
+        and args.dataset_profile == "us-unemployment"
+    ):
         try:
             provisional, profile_metadata = build_us_unemployment_profile(
                 csv_path, Path("results"),
@@ -308,6 +320,16 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             print(f"Cannot start unemployment study: {exc}", file=sys.stderr)
             return 2
+        if args.pipeline == "sarimax":
+            profile_metadata["benchmark_model_set"] = (SARIMAX_PIPELINE,)
+        if args.pipeline == "gru":
+            profile_metadata["benchmark_model_set"] = ("gru",)
+        if args.pipeline == "xgboost":
+            profile_metadata["benchmark_model_set"] = ("xgboost",)
+        if args.pipeline == "ridge-arx":
+            profile_metadata["benchmark_model_set"] = (RIDGE_ARX_PIPELINE,)
+        if args.pipeline == "mlp-arx":
+            profile_metadata["benchmark_model_set"] = ("mlp_arx",)
     else:
         provisional = build_experiment_config(args.pipeline, Path("results"))
         provisional = replace(
@@ -352,6 +374,10 @@ def main(argv: list[str] | None = None) -> int:
             "shared-mean-benchmark",
             "sensitivity",
             "vmd-ardl-hard-ffnn",
+            "gru",
+            "xgboost",
+            "ridge-arx",
+            "mlp-arx",
         }
         else tuple(),
         "include_varnn": (
@@ -371,6 +397,10 @@ def main(argv: list[str] | None = None) -> int:
                 "block-proposed-benchmark",
                 "shared-mean-benchmark",
                 "vmd-ardl-hard-ffnn",
+                "gru",
+                "xgboost",
+                "ridge-arx",
+                "mlp-arx",
             }
             else None
         ),
@@ -387,6 +417,31 @@ def main(argv: list[str] | None = None) -> int:
         "lstm_config": (
             asdict(LSTMConfig())
             if args.pipeline == "shared-mean-benchmark"
+            else None
+        ),
+        "gru_config": (
+            asdict(GRUConfig())
+            if args.pipeline in {"shared-mean-benchmark", "gru"}
+            else None
+        ),
+        "xgboost_config": (
+            asdict(XGBoostConfig())
+            if args.pipeline in {"shared-mean-benchmark", "xgboost"}
+            else None
+        ),
+        "ridge_arx_config": (
+            asdict(RidgeARXConfig())
+            if args.pipeline in {"shared-mean-benchmark", "ridge-arx"}
+            else None
+        ),
+        "mlp_arx_config": (
+            asdict(MLPARXConfig())
+            if args.pipeline in {"shared-mean-benchmark", "mlp-arx"}
+            else None
+        ),
+        "sarimax_config": (
+            asdict(SARIMAXConfig())
+            if args.pipeline in {"shared-mean-benchmark", "sarimax"}
             else None
         ),
         "proposed_block_subset_search_strategy": (
@@ -419,6 +474,8 @@ def main(argv: list[str] | None = None) -> int:
         "shared-mean-benchmark",
         "sensitivity",
         "vmd-ardl-hard-ffnn",
+        "gru",
+        "xgboost",
     }:
         print(f"Paper seeds: {tuple(args.paper_seeds)}")
     if args.pipeline in {"benchmark", "block-proposed-benchmark"}:

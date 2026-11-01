@@ -29,11 +29,33 @@ from .block_proposed_experiments import (
 )
 from .config import ExperimentConfig
 from .lstm_shared_mean import LSTM_MODEL, LSTM_PIPELINE, run_lstm_shared_mean_seed
+from .gru_shared_mean import GRU_MODEL, GRU_PIPELINE, run_gru_shared_mean_seed
+from .xgboost_shared_mean import (
+    XGBOOST_MODEL,
+    XGBOOST_PIPELINE,
+    run_xgboost_shared_mean_seed,
+)
+from .models.gru import GRUConfig
+from .models.xgboost import XGBoostConfig
 from .models.lstm import LSTMConfig
+from .models.sarimax import SARIMAXConfig
+from .models.ridge_arx import RidgeARXConfig
+from .models.mlp_arx import MLPARXConfig
 from .models.varnn import VARNNConfig
 from .paper_baselines import run_naive_baseline
 from .paper_reporting import lag_selection_frequency, write_paper_figures
 from .statistical_tests import pairwise_dm_tests
+from .sarimax_shared_mean import (
+    SARIMAX_MODEL,
+    SARIMAX_PIPELINE,
+    run_sarimax_validation_selected,
+)
+from .ridge_arx_shared_mean import (
+    RIDGE_ARX_MODEL,
+    RIDGE_ARX_PIPELINE,
+    run_ridge_arx_validation_selected,
+)
+from .mlp_arx_shared_mean import MLP_ARX_MODEL, MLP_ARX_PIPELINE, run_mlp_arx_shared_mean_seed
 
 
 NO_VMD_PIPELINE = "ardl_ffnn_no_vmd"
@@ -50,6 +72,11 @@ SHARED_MEAN_BENCHMARK_PIPELINES = (
     JOINT_SELECT_PIPELINE,
     VARNN_PIPELINE,
     LSTM_PIPELINE,
+    GRU_PIPELINE,
+    XGBOOST_PIPELINE,
+    RIDGE_ARX_PIPELINE,
+    MLP_ARX_PIPELINE,
+    SARIMAX_PIPELINE,
 )
 
 
@@ -99,7 +126,17 @@ def run_shared_mean_benchmark_experiments(
     seeds: tuple[int, ...] = (7, 42, 123, 2024, 2025),
     varnn_config: VARNNConfig | None = None,
     lstm_config: LSTMConfig | None = None,
+    gru_config: GRUConfig | None = None,
+    xgboost_config: XGBoostConfig | None = None,
+    ridge_arx_config: RidgeARXConfig | None = None,
+    mlp_arx_config: MLPARXConfig | None = None,
+    sarimax_config: SARIMAXConfig | None = None,
     include_lstm: bool = True,
+    include_gru: bool = True,
+    include_xgboost: bool = True,
+    include_ridge_arx: bool = True,
+    include_mlp_arx: bool = True,
+    include_sarimax: bool = True,
 ) -> dict[str, Any]:
     """Benchmark shared-mean stochastic workflows and a naïve reference."""
     seeds = tuple(dict.fromkeys(int(seed) for seed in seeds))
@@ -408,6 +445,236 @@ def run_shared_mean_benchmark_experiments(
             "enabled": True,
         })
 
+    if include_gru:
+        selected_gru_config = gru_config or GRUConfig()
+        started = perf_counter()
+        gru_results, gru_metrics, gru_forecasts, gru_selection, gru_fits = (
+            run_gru_shared_mean_seed(
+                csv_path,
+                config,
+                selected_gru_config,
+                seeds=seeds,
+                output_dir=root / GRU_PIPELINE,
+            )
+        )
+        variant_results[GRU_PIPELINE] = gru_results
+        metric_frames.append(gru_metrics)
+        forecast_frames.append(gru_forecasts)
+        write_csv(gru_selection, root / GRU_PIPELINE / "shared_selection.csv")
+        winner = gru_selection.loc[gru_selection["selected"]].iloc[0]
+        efficiency_rows.append({
+            "pipeline": GRU_PIPELINE,
+            "seed": None,
+            "runtime_seconds": perf_counter() - started,
+            "component_count": 1,
+            "evaluated_ffnn_fits": gru_fits,
+            "evaluated_gru_fits": gru_fits,
+        })
+        setting_rows.append({
+            "pipeline": GRU_PIPELINE,
+            "model": GRU_MODEL,
+            "included_in_benchmark": True,
+            "uses_vmd": False,
+            "target_lag_strategy": "gru_lookback_validation",
+            "exog_lag_strategy": "multivariate_history_through_t_minus_1",
+            "selection_protocol": "mean_level_validation_across_reporting_seeds",
+            "selection_seed_aggregation": "shared_mean_validation_across_reporting_seeds",
+            "shared_configuration_across_seeds": True,
+            "search_strategy": "shared_grid",
+            "fast_screen_validation_scope": "not_applicable",
+            "reporting_seeds": seeds,
+            "gru_lookback_grid": selected_gru_config.lookback_grid,
+            "gru_hidden_units_grid": selected_gru_config.hidden_units_grid,
+            "gru_learning_rate_grid": selected_gru_config.learning_rate_grid,
+            "gru_epochs": selected_gru_config.epochs,
+            "gru_selected_lookback": int(winner["lookback"]),
+            "gru_selected_hidden_units": int(winner["hidden_units"]),
+            "gru_selected_learning_rate": float(winner["learning_rate"]),
+            "final_selection_scale": "level",
+            "enabled": True,
+        })
+
+    if include_xgboost:
+        selected_xgboost_config = xgboost_config or XGBoostConfig()
+        started = perf_counter()
+        (
+            xgboost_results,
+            xgboost_metrics,
+            xgboost_forecasts,
+            xgboost_selection,
+            xgboost_fits,
+        ) = run_xgboost_shared_mean_seed(
+            csv_path,
+            config,
+            selected_xgboost_config,
+            seeds=seeds,
+            output_dir=root / XGBOOST_PIPELINE,
+        )
+        variant_results[XGBOOST_PIPELINE] = xgboost_results
+        metric_frames.append(xgboost_metrics)
+        forecast_frames.append(xgboost_forecasts)
+        write_csv(
+            xgboost_selection,
+            root / XGBOOST_PIPELINE / "shared_selection.csv",
+        )
+        winner = xgboost_selection.loc[xgboost_selection["selected"]].iloc[0]
+        efficiency_rows.append({
+            "pipeline": XGBOOST_PIPELINE,
+            "seed": None,
+            "runtime_seconds": perf_counter() - started,
+            "component_count": 1,
+            "evaluated_ffnn_fits": 0,
+            "evaluated_xgboost_fits": xgboost_fits,
+        })
+        setting_rows.append({
+            "pipeline": XGBOOST_PIPELINE,
+            "model": XGBOOST_MODEL,
+            "included_in_benchmark": True,
+            "uses_vmd": False,
+            "target_lag_strategy": "xgboost_lookback_validation",
+            "exog_lag_strategy": "multivariate_history_through_t_minus_1",
+            "selection_protocol": "mean_level_validation_across_reporting_seeds",
+            "selection_seed_aggregation": "shared_mean_validation_across_reporting_seeds",
+            "shared_configuration_across_seeds": True,
+            "search_strategy": "shared_grid",
+            "fast_screen_validation_scope": "not_applicable",
+            "reporting_seeds": seeds,
+            "xgboost_lookback_grid": selected_xgboost_config.lookback_grid,
+            "xgboost_max_depth_grid": selected_xgboost_config.max_depth_grid,
+            "xgboost_learning_rate_grid": selected_xgboost_config.learning_rate_grid,
+            "xgboost_n_estimators": selected_xgboost_config.n_estimators,
+            "xgboost_selected_lookback": int(winner["lookback"]),
+            "xgboost_selected_max_depth": int(winner["max_depth"]),
+            "xgboost_selected_learning_rate": float(winner["learning_rate"]),
+            "final_selection_scale": "level",
+            "enabled": True,
+        })
+
+    if include_ridge_arx:
+        selected_ridge_config = ridge_arx_config or RidgeARXConfig()
+        started = perf_counter()
+        ridge_result, ridge_metrics, ridge_forecasts, ridge_selection, ridge_fits = (
+            run_ridge_arx_validation_selected(
+                csv_path,
+                config,
+                selected_ridge_config,
+                output_dir=root / RIDGE_ARX_PIPELINE,
+            )
+        )
+        variant_results[RIDGE_ARX_PIPELINE] = [ridge_result]
+        metric_frames.append(ridge_metrics)
+        forecast_frames.append(ridge_forecasts)
+        write_csv(ridge_selection, root / RIDGE_ARX_PIPELINE / "shared_selection.csv")
+        winner = ridge_selection.loc[ridge_selection["selected"]].iloc[0]
+        efficiency_rows.append({
+            "pipeline": RIDGE_ARX_PIPELINE, "seed": None,
+            "runtime_seconds": perf_counter() - started,
+            "component_count": 1, "evaluated_ffnn_fits": 0,
+            "evaluated_ridge_arx_fits": ridge_fits,
+        })
+        setting_rows.append({
+            "pipeline": RIDGE_ARX_PIPELINE, "model": RIDGE_ARX_MODEL,
+            "included_in_benchmark": True, "uses_vmd": False,
+            "target_lag_strategy": "ridge_arx_lookback_validation",
+            "exog_lag_strategy": "multivariate_history_through_t_minus_1",
+            "selection_protocol": "level_validation_rmse",
+            "selection_seed_aggregation": None,
+            "shared_configuration_across_seeds": False,
+            "search_strategy": "validation_grid",
+            "fast_screen_validation_scope": "not_applicable",
+            "reporting_seeds": tuple(),
+            "ridge_arx_lookback_grid": selected_ridge_config.lookback_grid,
+            "ridge_arx_alpha_grid": selected_ridge_config.alpha_grid,
+            "ridge_arx_selected_lookback": int(winner["lookback"]),
+            "ridge_arx_selected_alpha": float(winner["alpha"]),
+            "final_selection_scale": "level", "enabled": True,
+        })
+
+    if include_mlp_arx:
+        selected_mlp_config = mlp_arx_config or MLPARXConfig()
+        started = perf_counter()
+        mlp_results, mlp_metrics, mlp_forecasts, mlp_selection, mlp_fits = run_mlp_arx_shared_mean_seed(
+            csv_path, config, selected_mlp_config, seeds=seeds,
+            output_dir=root / MLP_ARX_PIPELINE,
+        )
+        variant_results[MLP_ARX_PIPELINE] = mlp_results
+        metric_frames.append(mlp_metrics); forecast_frames.append(mlp_forecasts)
+        write_csv(mlp_selection, root / MLP_ARX_PIPELINE / "shared_selection.csv")
+        winner = mlp_selection.loc[mlp_selection["selected"]].iloc[0]
+        efficiency_rows.append({"pipeline": MLP_ARX_PIPELINE, "seed": None,
+            "runtime_seconds": perf_counter() - started, "component_count": 1,
+            "evaluated_ffnn_fits": 0, "evaluated_mlp_arx_fits": mlp_fits})
+        setting_rows.append({"pipeline": MLP_ARX_PIPELINE, "model": MLP_ARX_MODEL,
+            "included_in_benchmark": True, "uses_vmd": False,
+            "target_lag_strategy": "mlp_arx_lookback_validation",
+            "exog_lag_strategy": "multivariate_history_through_t_minus_1",
+            "selection_protocol": "mean_level_validation_across_reporting_seeds",
+            "selection_seed_aggregation": "shared_mean_validation_across_reporting_seeds",
+            "shared_configuration_across_seeds": True, "search_strategy": "shared_grid",
+            "fast_screen_validation_scope": "not_applicable", "reporting_seeds": seeds,
+            "mlp_arx_lookback_grid": selected_mlp_config.lookback_grid,
+            "mlp_arx_hidden_layer_grid": selected_mlp_config.hidden_layer_grid,
+            "mlp_arx_alpha_grid": selected_mlp_config.alpha_grid,
+            "mlp_arx_selected_lookback": int(winner["lookback"]),
+            "mlp_arx_selected_hidden_layers": tuple(winner["hidden_layers"]),
+            "mlp_arx_selected_alpha": float(winner["alpha"]),
+            "final_selection_scale": "level", "enabled": True})
+
+    if include_sarimax:
+        selected_sarimax_config = sarimax_config or SARIMAXConfig()
+        started = perf_counter()
+        (
+            sarimax_result,
+            sarimax_metrics,
+            sarimax_forecasts,
+            sarimax_selection,
+            sarimax_fits,
+        ) = run_sarimax_validation_selected(
+            csv_path,
+            config,
+            selected_sarimax_config,
+            output_dir=root / SARIMAX_PIPELINE,
+        )
+        variant_results[SARIMAX_PIPELINE] = [sarimax_result]
+        metric_frames.append(sarimax_metrics)
+        forecast_frames.append(sarimax_forecasts)
+        write_csv(
+            sarimax_selection,
+            root / SARIMAX_PIPELINE / "shared_selection.csv",
+        )
+        winner = sarimax_selection.loc[sarimax_selection["selected"]].iloc[0]
+        efficiency_rows.append({
+            "pipeline": SARIMAX_PIPELINE,
+            "seed": None,
+            "runtime_seconds": perf_counter() - started,
+            "component_count": 1,
+            "evaluated_ffnn_fits": 0,
+            "evaluated_sarimax_fits": sarimax_fits,
+        })
+        setting_rows.append({
+            "pipeline": SARIMAX_PIPELINE,
+            "model": SARIMAX_MODEL,
+            "included_in_benchmark": True,
+            "uses_vmd": False,
+            "target_lag_strategy": "sarimax_validation_grid",
+            "exog_lag_strategy": "forecast_safe_fixed_lag",
+            "selection_protocol": "level_validation_rmse",
+            "selection_seed_aggregation": None,
+            "shared_configuration_across_seeds": False,
+            "search_strategy": "validation_grid",
+            "fast_screen_validation_scope": "not_applicable",
+            "reporting_seeds": tuple(),
+            "sarimax_order_grid": selected_sarimax_config.order_grid,
+            "sarimax_seasonal_order_grid": (
+                selected_sarimax_config.seasonal_order_grid
+            ),
+            "sarimax_exog_lag": selected_sarimax_config.exog_lag,
+            "sarimax_selected_order": tuple(winner["order"]),
+            "sarimax_selected_seasonal_order": tuple(winner["seasonal_order"]),
+            "final_selection_scale": "level",
+            "enabled": True,
+        })
+
     started = perf_counter()
     naive_result = run_naive_baseline(
         csv_path,
@@ -445,9 +712,20 @@ def run_shared_mean_benchmark_experiments(
     active_pipelines = set(forecasts["pipeline"].unique())
     stochastic_pipelines = tuple(
         pipeline for pipeline in SHARED_MEAN_BENCHMARK_PIPELINES
-        if include_lstm or pipeline != LSTM_PIPELINE
+        if pipeline != SARIMAX_PIPELINE
+        and pipeline != RIDGE_ARX_PIPELINE
+        and pipeline != MLP_ARX_PIPELINE
+        and (include_lstm or pipeline != LSTM_PIPELINE)
+        and (include_gru or pipeline != GRU_PIPELINE)
+        and (include_xgboost or pipeline != XGBOOST_PIPELINE)
     )
     expected_pipelines = set(stochastic_pipelines) | {NAIVE_PIPELINE}
+    if include_sarimax:
+        expected_pipelines.add(SARIMAX_PIPELINE)
+    if include_ridge_arx:
+        expected_pipelines.add(RIDGE_ARX_PIPELINE)
+    if include_mlp_arx:
+        expected_pipelines.add(MLP_ARX_PIPELINE)
     if active_pipelines != expected_pipelines:
         raise ValueError(
             "Shared-mean benchmark model set mismatch: "
@@ -586,5 +864,10 @@ def run_shared_mean_benchmark_experiments(
         "joint_select": variant_results[JOINT_SELECT_PIPELINE],
         "varnn": variant_results[VARNN_PIPELINE],
         "lstm": variant_results.get(LSTM_PIPELINE, []),
+        "gru": variant_results.get(GRU_PIPELINE, []),
+        "xgboost": variant_results.get(XGBOOST_PIPELINE, []),
+        "ridge_arx": variant_results.get(RIDGE_ARX_PIPELINE, []),
+        "mlp_arx": variant_results.get(MLP_ARX_PIPELINE, []),
+        "sarimax": variant_results.get(SARIMAX_PIPELINE, []),
         "naive": variant_results[NAIVE_PIPELINE],
     }

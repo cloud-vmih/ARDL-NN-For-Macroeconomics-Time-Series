@@ -76,8 +76,9 @@ level RMSE for no-VMD FFNN/VARNN and reconstructed-level RMSE for VMD models.
 It then refits the locked winner at every seed; it never selects a best seed or
 uses test loss for selection.
 
-For the audited US unemployment comparison, including VAR-NN, LSTM and the naïve
-reference, run:
+For the audited US unemployment comparison, including VAR-NN, LSTM, GRU,
+XGBoost, SARIMAX and
+the naïve reference, run:
 
 ```bash
 python ../run_pipeline_advanced.py --pipeline shared-mean-benchmark \
@@ -88,7 +89,9 @@ python ../run_pipeline_advanced.py --pipeline shared-mean-benchmark \
 ```
 
 This profile contains `ardl_ffnn_no_vmd`, the current block-subset Proposed,
-the legacy sequential Proposed, `vmd_ardl_joint_select`, VAR-NN, LSTM and naïve.
+the legacy sequential Proposed, `vmd_ardl_joint_select`, VAR-NN, LSTM, GRU,
+XGBoost, SARIMAX
+and naïve.
 Each stochastic workflow locks one configuration by mean validation RMSE across
 all reporting seeds before per-seed refit. LSTM uses target and exogenous history
 through `t-1`, with train-only scaling for selection and train+validation scaling

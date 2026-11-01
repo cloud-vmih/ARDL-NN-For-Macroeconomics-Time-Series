@@ -23,8 +23,9 @@ PYTHONPATH=vmd_ardl_ffnn/src ./.venv/bin/python3 -m vmd_ardl_ffnn.macro_fred_pan
   --run-id us-unemployment-lstm-04
 ```
 
-Benchmark này chạy bốn shared-mean workflow hiện có, VAR-NN, LSTM và naïve last
-observation trên cùng validation/test dates. `--tensorflow-run-eagerly` hạn chế
+Benchmark này chạy bốn shared-mean workflow hiện có, VAR-NN, LSTM, GRU,
+MLP-ARX, XGBoost, Ridge-ARX, SARIMAX và
+naïve last observation trên cùng validation/test dates. `--tensorflow-run-eagerly` hạn chế
 RAM tăng qua nhiều lượt fit FFNN và được ghi vào manifest. Panel chính có 309 tháng
 01/2000–09/2025; 10/2025 không được nội suy. Ngoại sinh của dòng cuối
 09/2025 dùng vintage 31/01/2026 do công bố bị chậm và được audit là không
@@ -359,7 +360,7 @@ entrypoint. Truyền `--data` không tự động đổi target/features.
 
 ## Benchmark và ablation cho paper
 
-### Benchmark shared mean với VAR-NN, LSTM và naïve
+### Benchmark shared mean với VAR-NN, LSTM, GRU, MLP-ARX, XGBoost, Ridge-ARX, SARIMAX và naïve
 
 ```bash
 ./.venv/bin/python3 run_pipeline_advanced.py \
@@ -370,7 +371,7 @@ entrypoint. Truyền `--data` không tự động đổi target/features.
   --paper-seeds 7 42 123 2024 2025
 ```
 
-Pipeline này so sánh bảy model sau:
+Pipeline này so sánh mười hai model sau:
 
 | Vai trò | Pipeline artifact | Cơ chế lag/search |
 | --- | --- | --- |
@@ -380,6 +381,11 @@ Pipeline này so sánh bảy model sau:
 | Joint Select | `vmd_ardl_joint_select` | VMD, `ardl_select_order` chọn target và exogenous lags đồng thời |
 | VAR-NN | `varnn` | Chọn một cấu hình theo mean level validation RMSE qua reporting seeds |
 | LSTM | `lstm` | Dùng target và bốn ngoại sinh đến tháng `t−1`; chọn chung lookback, số hidden units và learning rate theo mean level validation RMSE qua reporting seeds |
+| GRU | `gru` | Cùng causal window/grid/mean-seed selection như LSTM nhưng dùng GRU recurrent cell |
+| MLP-ARX | `mlp_arx` | MLPRegressor trên causal target/exogenous windows; chọn lookback, hidden layers và alpha qua mean validation RMSE |
+| XGBoost | `xgboost` | Flatten causal multivariate window; chọn chung lookback, tree depth và learning rate bằng mean validation RMSE qua seeds |
+| Ridge-ARX | `ridge_arx` | Ridge regression trên target/exogenous lags đến `t−1`; chọn lookback và alpha bằng validation RMSE |
+| SARIMAX | `sarimax` | Grid `(p,d,q) × (P,D,Q,12)`, ngoại sinh trễ một tháng; chọn bằng level validation RMSE rồi rolling one-step trên test |
 | Naïve | `naive_last_observation` | Dự báo bằng giá trị target tháng trước; không có seed |
 
 Với mỗi FFNN signature, validation RMSE được tính ở mọi `--paper-seeds` rồi lấy
@@ -395,6 +401,76 @@ rate `0.001`; cấu hình thắng được khóa chung cho mọi seed. Dự báo
 one-step, nên tại tháng `t` có thể dùng quan sát thật đã có ở các tháng trước.
 Kết quả chi tiết nằm trong `lstm/lstm_shared_validation_search.csv`,
 `lstm/lstm_shared_mean_seed_selection.csv` và `lstm/seed_<seed>/` của run mới.
+
+GRU dùng cùng protocol với LSTM và lưu grid tại
+`gru/gru_shared_validation_search.csv`, cấu hình chung tại
+`gru/gru_shared_mean_seed_selection.csv`, cùng forecast/metrics trong
+`gru/seed_<seed>/`. Chạy riêng GRU đủ 5 reporting seeds bằng:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline gru \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --tensorflow-device gpu \
+  --tensorflow-run-eagerly \
+  --paper-seeds 7 42 123 2024 2025 \
+  --run-id us-unemployment-gru-5seeds
+```
+
+XGBoost dùng các cửa sổ causal tương tự nhưng không scale dữ liệu. Grid mặc định
+gồm lookback 6/12, depth 2/3, learning rate `0.03/0.1`, 200 cây, subsample và
+column-sample `0.8`. Chạy riêng đủ 5 seed bằng:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline xgboost \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --paper-seeds 7 42 123 2024 2025 \
+  --run-id us-unemployment-xgboost-5seeds
+```
+
+Ridge-ARX là comparator deterministic, chuẩn hóa lag features chỉ trên tập fit
+và chọn lookback 1/3/6/12 cùng alpha Ridge `0.01–100` bằng validation RMSE:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline ridge-arx \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --run-id us-unemployment-ridge-arx-01
+```
+
+Chạy riêng MLP-ARX đủ 5 seed:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline mlp-arx \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --paper-seeds 7 42 123 2024 2025 \
+  --run-id us-unemployment-mlp-arx-5seeds
+```
+
+SARIMAX là comparator deterministic: ngoại sinh tháng `t` được dịch trễ để chỉ
+dùng thông tin đến `t−1`; sau mỗi one-step forecast, actual target mới được cập
+nhật vào state nhưng tham số không được fit lại. Candidate phải hội tụ trên train
+và sau refit train+validation mới đủ điều kiện. Kết quả nằm trong
+`sarimax/sarimax_validation_search.csv`, `sarimax/sarimax_selection.csv`,
+`sarimax/forecasts.csv` và `sarimax/metrics.csv`. SARIMAX không nhân bản forecast
+qua reporting seeds; cột seed để trống như naïve.
+
+Có thể chạy riêng SARIMAX (khoảng vài chục giây trên panel hiện tại) mà không
+chạy lại toàn bộ ARDL–NN/VAR-NN/LSTM/GRU/MLP-ARX/XGBoost/Ridge-ARX:
+
+```bash
+./.venv/bin/python3 run_pipeline_advanced.py \
+  --pipeline sarimax \
+  --dataset-profile us-unemployment \
+  --data data/macro_us/processed/us_unemployment_awhman_2000_2025_09.csv \
+  --run-id us-unemployment-sarimax-01
+```
 
 Riêng block-Proposed của pipeline này không dùng outer validation để giữ top 4
 block specs. Mỗi spec được fit bằng lightweight model cố định `alpha=0.1`, LR
@@ -912,7 +988,8 @@ results/benchmark/<run_id>/
 ```
 
 `shared-mean-benchmark` dùng cùng nhóm paper/benchmark artifact phía trên, có
-thêm thư mục `varnn/`, `lstm/` và `naive_last_observation/`. Nó không sinh
+thêm thư mục `varnn/`, `lstm/`, `gru/`, `xgboost/`, `ridge_arx/`, `sarimax/` và
+`naive_last_observation/`. Nó không sinh
 `ablation_metrics.csv` hoặc `ablation_forecasts.csv`.
 
 Trong các FFNN validation tables, `learning_rate_init` là learning rate của
@@ -920,7 +997,9 @@ candidate. Trong mỗi VARNN seed directory, `varnn_validation_search.csv` lưu
 các candidate thuộc grid của profile; bảng `varnn/shared_selection.csv` lưu
 cấu hình thắng theo trung bình validation RMSE qua reporting seeds. LSTM lưu
 grid và bảng chọn chung tại `lstm/lstm_shared_validation_search.csv` và
-`lstm/lstm_shared_mean_seed_selection.csv`.
+`lstm/lstm_shared_mean_seed_selection.csv`. SARIMAX lưu grid và trạng thái hội
+tụ tại `sarimax/sarimax_validation_search.csv`; cấu hình deterministic thắng ở
+`sarimax/sarimax_selection.csv`.
 
 Các thư mục `results_vmd/`, `results_vmd-ardl-select-order/`,
 `results_vmd-ardl-joint-select/`, `vmd_ardl_ffnn/results*` là artifact legacy.

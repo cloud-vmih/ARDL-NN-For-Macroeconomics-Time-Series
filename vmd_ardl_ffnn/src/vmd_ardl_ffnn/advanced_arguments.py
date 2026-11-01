@@ -12,6 +12,11 @@ PIPELINE_CHOICES = (
     "no-vmd",
     "both",
     "varnn",
+    "gru",
+    "xgboost",
+    "ridge-arx",
+    "mlp-arx",
+    "sarimax",
     "model-comparison",
     "benchmark",
     "block-proposed-benchmark",
@@ -31,7 +36,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--dataset-profile", choices=("legacy-export", "us-unemployment"),
         default="legacy-export",
-        help="Audited US unemployment data for shared-mean-benchmark, or legacy export data.",
+        help=(
+            "Audited US unemployment data for shared-mean-benchmark or standalone "
+            "SARIMAX, or legacy export data."
+        ),
     )
     parser.add_argument("--output-root", type=Path, default=Path.cwd() / "results")
     parser.add_argument("--run-id", default=None, help="Optional deterministic run directory name.")
@@ -98,8 +106,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if args.resume and args.pipeline != "sequential-vmd-ardl-ffnn":
         parser.error("--resume is supported only by sequential-vmd-ardl-ffnn")
     if args.dataset_profile == "us-unemployment":
-        if args.pipeline != "shared-mean-benchmark":
-            parser.error("--dataset-profile us-unemployment requires shared-mean-benchmark")
+        if args.pipeline not in {
+            "shared-mean-benchmark", "gru", "xgboost", "ridge-arx", "mlp-arx", "sarimax"
+        }:
+            parser.error(
+                "--dataset-profile us-unemployment requires "
+                "shared-mean-benchmark, gru, xgboost, ridge-arx, mlp-arx or sarimax"
+            )
     if args.skip_varnn and args.pipeline not in {"benchmark", "block-proposed-benchmark"}:
         parser.error("--skip-varnn is supported only by benchmark and block-proposed-benchmark")
     if "df_final.csv" in {args.data.name, args.data.resolve().name}:

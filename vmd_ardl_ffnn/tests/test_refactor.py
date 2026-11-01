@@ -1199,6 +1199,46 @@ def test_shared_mean_orchestrator_runs_exact_requested_model_set(
                                 "learning_rate": [0.001], "selected": [True]})
         return ([{"selected": 6}], metrics, forecasts, ranking, 6)
 
+    def fake_gru(csv_path, config, gru_config, *, seeds, output_dir):
+        metrics, forecasts = frames("gru", "GRU_SharedMeanSeed", 0.065)
+        ranking = pd.DataFrame({"lookback": [6], "hidden_units": [16],
+                                "learning_rate": [0.001], "selected": [True]})
+        return ([{"selected": 6}], metrics, forecasts, ranking, 6)
+
+    def fake_xgboost(csv_path, config, xgboost_config, *, seeds, output_dir):
+        metrics, forecasts = frames("xgboost", "XGBoost_SharedMeanSeed", 0.055)
+        ranking = pd.DataFrame({"lookback": [6], "max_depth": [2],
+                                "learning_rate": [0.1], "selected": [True]})
+        return ([{"selected": 6}], metrics, forecasts, ranking, 6)
+
+    def fake_ridge_arx(csv_path, config, ridge_config, *, output_dir):
+        metrics, forecasts = frames("ridge_arx", "Ridge_ARX_ValidationSelected", 0.045)
+        metrics = metrics.loc[metrics["seed"].eq(seeds[0])].copy()
+        forecasts = forecasts.loc[forecasts["seed"].eq(seeds[0])].copy()
+        metrics["seed"] = pd.NA
+        forecasts["seed"] = pd.NA
+        ranking = pd.DataFrame({"lookback": [1], "alpha": [1.0], "selected": [True]})
+        return ({"lookback": 1}, metrics, forecasts, ranking, 2)
+
+    def fake_mlp_arx(csv_path, config, mlp_config, *, seeds, output_dir):
+        metrics, forecasts = frames("mlp_arx", "MLP_ARX_SharedMeanSeed", 0.05)
+        ranking = pd.DataFrame({"lookback": [6], "hidden_layers": [(32,)],
+                                "alpha": [0.001], "selected": [True]})
+        return ([{"selected": 6}], metrics, forecasts, ranking, 6)
+
+    def fake_sarimax(csv_path, config, sarimax_config, *, output_dir):
+        metrics, forecasts = frames("sarimax", "SARIMAX_ValidationSelected", 0.06)
+        metrics = metrics.loc[metrics["seed"].eq(seeds[0])].copy()
+        forecasts = forecasts.loc[forecasts["seed"].eq(seeds[0])].copy()
+        metrics["seed"] = pd.NA
+        forecasts["seed"] = pd.NA
+        ranking = pd.DataFrame({
+            "order": [(1, 0, 0)],
+            "seasonal_order": [(0, 0, 0, 12)],
+            "selected": [True],
+        })
+        return ({"order": (1, 0, 0)}, metrics, forecasts, ranking, 2)
+
     def fake_naive(csv_path, config, *, lag, model_name):
         metrics, forecasts = frames(model_name, model_name, 0.09)
         return {
@@ -1208,6 +1248,11 @@ def test_shared_mean_orchestrator_runs_exact_requested_model_set(
 
     monkeypatch.setattr(study, "run_varnn_shared_mean_seed", fake_varnn, raising=False)
     monkeypatch.setattr(study, "run_lstm_shared_mean_seed", fake_lstm, raising=False)
+    monkeypatch.setattr(study, "run_gru_shared_mean_seed", fake_gru, raising=False)
+    monkeypatch.setattr(study, "run_xgboost_shared_mean_seed", fake_xgboost, raising=False)
+    monkeypatch.setattr(study, "run_ridge_arx_validation_selected", fake_ridge_arx, raising=False)
+    monkeypatch.setattr(study, "run_mlp_arx_shared_mean_seed", fake_mlp_arx, raising=False)
+    monkeypatch.setattr(study, "run_sarimax_validation_selected", fake_sarimax, raising=False)
     monkeypatch.setattr(study, "run_naive_baseline", fake_naive, raising=False)
 
     csv_path = tmp_path / "study.csv"
@@ -1236,14 +1281,22 @@ def test_shared_mean_orchestrator_runs_exact_requested_model_set(
     assert result["comparison_metrics"]["estimand"].eq(
         "distribution_of_per_seed_metrics"
     ).all()
-    stochastic = result["comparison_metrics"].query("pipeline != 'naive_last_observation'")
+    stochastic = result["comparison_metrics"].query(
+        "pipeline not in ['naive_last_observation', 'sarimax', 'ridge_arx']"
+    )
     assert stochastic["RMSE_count"].eq(len(seeds)).all()
-    assert result["comparison_metrics"].query("pipeline == 'naive_last_observation'")["RMSE_count"].eq(1).all()
+    deterministic = result["comparison_metrics"].query(
+        "pipeline in ['naive_last_observation', 'sarimax', 'ridge_arx']"
+    )
+    assert deterministic["RMSE_count"].eq(1).all()
     assert result["ensemble_comparison_metrics"]["estimand"].eq(
         "ensemble_mean_prediction"
     ).all()
-    assert result["settings"].query("pipeline != 'naive_last_observation'")["shared_configuration_across_seeds"].all()
-    assert result["settings"].query("pipeline != 'naive_last_observation'")["selection_seed_aggregation"].eq(
+    stochastic_settings = result["settings"].query(
+        "pipeline not in ['naive_last_observation', 'sarimax', 'ridge_arx']"
+    )
+    assert stochastic_settings["shared_configuration_across_seeds"].all()
+    assert stochastic_settings["selection_seed_aggregation"].eq(
         "shared_mean_validation_across_reporting_seeds"
     ).all()
     assert set(result["comparison_forecasts"]["pipeline"]) == set(study.SHARED_MEAN_BENCHMARK_PIPELINES) | {"naive_last_observation"}
@@ -1342,6 +1395,28 @@ def test_us_unemployment_profile_requires_explicit_audited_panel(tmp_path: Path,
         runner.parse_args(["--pipeline", "shared-mean-benchmark", "--dataset-profile", "us-unemployment"])
     with pytest.raises(SystemExit):
         runner.parse_args(["--pipeline", "varnn", "--dataset-profile", "us-unemployment", "--data", "x.csv"])
+    sarimax_args = runner.parse_args([
+        "--pipeline", "sarimax", "--dataset-profile", "us-unemployment",
+        "--data", "x.csv",
+    ])
+    assert sarimax_args.pipeline == "sarimax"
+    gru_args = runner.parse_args([
+        "--pipeline", "gru", "--dataset-profile", "us-unemployment",
+        "--data", "x.csv", "--paper-seeds", "7", "42",
+    ])
+    assert gru_args.pipeline == "gru"
+    assert gru_args.paper_seeds == [7, 42]
+    xgboost_args = runner.parse_args([
+        "--pipeline", "xgboost", "--dataset-profile", "us-unemployment",
+        "--data", "x.csv", "--paper-seeds", "7", "42",
+    ])
+    assert xgboost_args.pipeline == "xgboost"
+    assert xgboost_args.paper_seeds == [7, 42]
+    ridge_args = runner.parse_args([
+        "--pipeline", "ridge-arx", "--dataset-profile", "us-unemployment",
+        "--data", "x.csv",
+    ])
+    assert ridge_args.pipeline == "ridge-arx"
     with pytest.raises(SystemExit):
         runner.parse_args([
             "--pipeline", "shared-mean-benchmark", "--dataset-profile", "us-unemployment",
@@ -1377,7 +1452,7 @@ def test_us_unemployment_profile_requires_explicit_audited_panel(tmp_path: Path,
     assert config.data.log_transform is False
     assert metadata["panel_sha256"] == audit["panel_sha256"]
     assert len(metadata["source_audit_sha256"]) == 64
-    assert len(metadata["benchmark_model_set"]) == 7
+    assert len(metadata["benchmark_model_set"]) == 12
     monkeypatch.setattr(runner, "SEQUENTIAL_MACRO_FEATURES", ("different_feature",))
     config_again, _ = runner.build_us_unemployment_profile(
         source, tmp_path / "out", runtime=TensorFlowRuntimeConfig(device="cpu"),
@@ -1447,7 +1522,8 @@ def test_us_result_validation_rejects_missing_reporting_seed(tmp_path: Path) -> 
         for split, count in (("validation", 46), ("test", 47))
     ])
     metrics = pd.DataFrame([
-        {"pipeline": model, "split": split, "seed": 7 if model != runner.NAIVE_PIPELINE else None}
+        {"pipeline": model, "split": split,
+         "seed": None if model in {runner.NAIVE_PIPELINE, "sarimax"} else 7}
         for model in models for split in ("validation", "test")
     ])
     results = {

@@ -1,0 +1,5 @@
+mean_seed_rank,lookback,hidden_units,learning_rate,mean_val_level_RMSE,std_val_level_RMSE,mean_val_level_MAE,mean_val_level_MAPE,seed_count,selected,selection_protocol
+1,6,32,0.001,2.059307177565167,0.0,0.8978686637674586,11.57937795421688,1,True,mean_level_validation_across_reporting_seeds
+2,12,32,0.001,2.145612471291688,0.0,0.97291666899404,12.559143551605933,1,False,mean_level_validation_across_reporting_seeds
+3,6,16,0.001,2.181459922294232,0.0,0.8698429330446072,10.578878861926864,1,False,mean_level_validation_across_reporting_seeds
+4,12,16,0.001,2.246984363110402,0.0,0.9816991405036342,12.81370341136783,1,False,mean_level_validation_across_reporting_seeds

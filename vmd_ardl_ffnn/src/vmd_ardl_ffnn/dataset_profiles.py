@@ -13,6 +13,8 @@ from .artifacts import file_sha256
 from .config import ExperimentConfig, TensorFlowRuntimeConfig
 from .macro_benchmark import build_macro_experiment_config
 from .shared_mean_benchmark_experiments import NAIVE_PIPELINE, SHARED_MEAN_BENCHMARK_PIPELINES
+from .sarimax_shared_mean import SARIMAX_PIPELINE
+from .ridge_arx_shared_mean import RIDGE_ARX_PIPELINE
 
 US_UNEMPLOYMENT_FEATURES = (
     "manufacturing_hours",
@@ -98,10 +100,16 @@ def _validate_us_unemployment_result(
                 raise ValueError(f"Unemployment benchmark is missing {key} seed coverage.")
             for model in expected:
                 member = table.loc[table["pipeline"].eq(model) & table["split"].eq(split)]
-                if model == NAIVE_PIPELINE:
+                if model in {
+                    NAIVE_PIPELINE,
+                    SARIMAX_PIPELINE,
+                    RIDGE_ARX_PIPELINE,
+                }:
                     expected_rows = 1 if key == "seed_metrics" else count
                     if len(member) != expected_rows or not member["seed"].isna().all():
-                        raise ValueError(f"Naïve seed/date coverage is invalid for {split}.")
+                        raise ValueError(
+                            f"{model} deterministic seed/date coverage is invalid for {split}."
+                        )
                     continue
                 actual_seeds = set(pd.to_numeric(member["seed"], errors="coerce").dropna().astype(int))
                 if actual_seeds != set(metadata["paper_seeds"]):

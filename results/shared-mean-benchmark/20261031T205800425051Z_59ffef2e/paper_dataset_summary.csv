@@ -1,0 +1,6 @@
+variable,role,frequency,log_transform,stationarity_transform,n_observations,sample_start,sample_end
+unemployment_rate,target,MS,False,diff1,309,2000-01-01,2025-09-01
+manufacturing_hours,exogenous,MS,False,diff1,309,2000-01-01,2025-09-01
+nonfarm_payrolls,exogenous,MS,False,diff1,309,2000-01-01,2025-09-01
+cpi_all_items,exogenous,MS,False,diff1,309,2000-01-01,2025-09-01
+industrial_prod,exogenous,MS,False,diff1,309,2000-01-01,2025-09-01

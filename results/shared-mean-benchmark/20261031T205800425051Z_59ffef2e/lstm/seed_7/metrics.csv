@@ -1,0 +1,3 @@
+model,pipeline,target,split,scale,seed,RMSE,MAE,MAPE,R2,Directional_Accuracy
+LSTM_SharedMeanSeed,lstm,unemployment_rate,validation,level,7,2.059307177565167,0.8978686637674586,11.57937795421688,0.35005416722195615,33.33333333333333
+LSTM_SharedMeanSeed,lstm,unemployment_rate,test,level,7,2.415733786774451,2.348506898620377,61.24737036140042,-75.86152713091494,39.130434782608695
